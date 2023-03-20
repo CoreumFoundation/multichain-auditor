@@ -1,4 +1,4 @@
-module github.com/CoreumFoundation/multichain-watcher
+module github.com/CoreumFoundation/multichain-auditor
 
 go 1.20
 
