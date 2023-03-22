@@ -9,26 +9,29 @@ import (
 	"github.com/CoreumFoundation/coreum/pkg/config"
 	"github.com/CoreumFoundation/coreum/pkg/config/constant"
 	"github.com/CoreumFoundation/faucet/pkg/logger"
+	"github.com/CoreumFoundation/faucet/pkg/signal"
 )
 
 const (
-	defaultCoreumTestnetRPC    = "https://full-node.testnet-1.coreum.dev:26657"
-	defaultMainnetTestnetRPC   = "https://full-node.mainnet-1.coreum.dev:26657"
-	defaultCoreumWalletTestnet = "testcore1pykqce6sh6szm8mkzmsjweyucshahe5gjeykxr"
-	defaultCoreumWalletMainnet = "core1ssh2d2ft6hzrgn9z6k7mmsamy2hfpxl9y8re5x"
+	defaultCoreumTestnetRPC     = "https://full-node.testnet-1.coreum.dev:26657"
+	defaultCoreumMainnetRPC     = "https://full-node.mainnet-1.coreum.dev:26657"
+	defaultCoreumAccountTestnet = "testcore1pykqce6sh6szm8mkzmsjweyucshahe5gjeykxr"
+	defaultCoreumAccountMainnet = "core1ssh2d2ft6hzrgn9z6k7mmsamy2hfpxl9y8re5x"
 )
 
 type Config struct {
 	chainID          string
 	denom            string
-	coreumWallet     string
+	coreumAccount    string
 	coreumRPCAddress string
+	outputDocument   string
 }
 
 func setup(cmd *cobra.Command) (Config, context.Context, *zap.Logger, error) {
 	loggerConfig, _ := logger.ConfigureWithCLI(logger.ToolDefaultConfig)
 	log := logger.New(loggerConfig)
 	ctx := logger.WithLogger(context.Background(), log)
+	ctx = signal.TerminateSignal(ctx)
 
 	config, err := getConfig(cmd)
 	if err != nil {
@@ -61,28 +64,34 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 		case constant.ChainIDTest:
 			coreumRPCAddress = defaultCoreumTestnetRPC
 		case constant.ChainIDMain:
-			coreumRPCAddress = defaultMainnetTestnetRPC
+			coreumRPCAddress = defaultCoreumMainnetRPC
 		}
 	}
 
-	coreumWallet, err := cmd.Flags().GetString(coreumWalletFlag)
+	coreumAccount, err := cmd.Flags().GetString(coreumAccountFlag)
 	if err != nil {
 		return Config{}, err
 	}
 
-	if coreumWallet == "" {
+	if coreumAccount == "" {
 		switch constant.ChainID(chainID) {
 		case constant.ChainIDTest:
-			coreumWallet = defaultCoreumWalletTestnet
+			coreumAccount = defaultCoreumAccountTestnet
 		case constant.ChainIDMain:
-			coreumWallet = defaultCoreumWalletMainnet
+			coreumAccount = defaultCoreumAccountMainnet
 		}
+	}
+
+	outputDocument, err := cmd.Flags().GetString(outputDocumentFlag)
+	if err != nil {
+		return Config{}, err
 	}
 
 	return Config{
 		chainID:          chainID,
 		denom:            network.Denom(),
 		coreumRPCAddress: coreumRPCAddress,
-		coreumWallet:     coreumWallet,
+		coreumAccount:    coreumAccount,
+		outputDocument:   outputDocument,
 	}, nil
 }

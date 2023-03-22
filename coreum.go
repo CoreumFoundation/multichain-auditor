@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/x/auth"
@@ -41,8 +39,6 @@ func createClientContext(cfg Config) client.Context {
 	clientCtx := client.Context{}.
 		WithChainID(string(cfg.chainID)).
 		WithClient(rpcClient).
-		WithKeyring(keyring.NewInMemory()).
-		WithBroadcastMode(flags.BroadcastBlock).
 		WithCodec(encodingConfig.Codec).
 		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
 		WithTxConfig(encodingConfig.TxConfig).
@@ -72,11 +68,12 @@ func findTxsWithSingleBankSend(ctx context.Context, clientCtx client.Context, ev
 			log.Info("Fetching txs..",
 				zap.Uint64("Total Items", res.TotalCount),
 				zap.Int("PerPage Items", limit),
+				zap.Uint64("Total Page", res.PageTotal),
 			)
 		}
 
 		log.Info("Fetching ...", zap.String("page", fmt.Sprintf("%d/%d", page, res.PageTotal)))
-		if page == int(res.PageTotal) {
+		if page == int(res.PageTotal) || res.PageTotal == 0 {
 			getMore = false
 		}
 		for _, txAny := range res.Txs {
@@ -124,7 +121,7 @@ func writeCoreumTxsToCSV(list []BankSendWithMemo, denom string, path string) err
 
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, permission)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
 	writer := csv.NewWriter(file)
@@ -141,7 +138,7 @@ func writeCoreumTxsToCSV(list []BankSendWithMemo, denom string, path string) err
 		"Memo",
 		"Timestamp",
 	}); err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
 	for _, elem := range list {
@@ -153,7 +150,7 @@ func writeCoreumTxsToCSV(list []BankSendWithMemo, denom string, path string) err
 			elem.Timestamp,
 		})
 		if err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 	}
 	return nil
