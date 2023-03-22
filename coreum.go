@@ -2,11 +2,8 @@ package main
 
 import (
 	"context"
-	"encoding/csv"
 	"fmt"
-	"io/fs"
-	"os"
-	"path/filepath"
+	"time"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -23,6 +20,13 @@ import (
 	"github.com/CoreumFoundation/coreum/pkg/config"
 	"github.com/CoreumFoundation/coreum/x/wbank"
 )
+
+type BankSendWithMemo struct {
+	Hash string
+	*banktypes.MsgSend
+	Memo      string
+	Timestamp time.Time
+}
 
 func createClientContext(cfg Config) client.Context {
 	// List required modules.
@@ -95,10 +99,15 @@ func findTxsWithSingleBankSend(ctx context.Context, clientCtx client.Context, ev
 			if !ok {
 				return nil, errors.New("message is not bank MsgSend type")
 			}
+			timestamp, err := time.Parse(time.RFC3339, txAny.Timestamp)
+			if err != nil {
+				return nil, errors.Errorf("can't parse time: %s with format %s", txAny.Timestamp, time.RFC3339)
+			}
 			response = append(response, BankSendWithMemo{
+				Hash:      txAny.TxHash,
 				MsgSend:   bankSend,
 				Memo:      tx.Body.Memo,
-				Timestamp: txAny.Timestamp,
+				Timestamp: timestamp,
 			})
 		}
 	}
@@ -106,55 +115,19 @@ func findTxsWithSingleBankSend(ctx context.Context, clientCtx client.Context, ev
 	return response, nil
 }
 
-type BankSendWithMemo struct {
-	*banktypes.MsgSend
-	Memo      string
-	Timestamp string
-}
-
-func ensureDir(dirPath string, perm fs.FileMode) {
-	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-		os.MkdirAll(dirPath, fs.FileMode(perm))
-	}
-}
-
-func writeCoreumTxsToCSV(list []BankSendWithMemo, denom string, path string) error {
-	permission := fs.FileMode(0777)
-	ensureDir(filepath.Dir(path), permission)
-
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, permission)
-	if err != nil {
-		return err
-	}
-
-	writer := csv.NewWriter(file)
-	defer func() {
-		writer.Flush()
-		file.Close()
-	}()
-
-	// write header
-	if err := writer.Write([]string{
-		"FromAddress",
-		"ToAddress",
-		"Amount",
-		"Memo",
-		"Timestamp",
-	}); err != nil {
-		return err
-	}
-
-	for _, elem := range list {
-		err := writer.Write([]string{
-			elem.FromAddress,
-			elem.ToAddress,
-			elem.Amount.AmountOf(denom).String(),
-			elem.Memo,
-			elem.Timestamp,
+func writeCoreumTxsToCSV(coreumTxs []BankSendWithMemo, denom, path string) error {
+	txs := make([]txExportItem, 0, len(coreumTxs))
+	for _, coreumTx := range coreumTxs {
+		txs = append(txs, txExportItem{
+			Hash:          coreumTx.Hash,
+			FromAddress:   coreumTx.FromAddress,
+			ToAddress:     coreumTx.ToAddress,
+			TargetAddress: coreumTx.ToAddress,
+			Amount:        coreumTx.Amount.AmountOf(denom).BigInt(),
+			Memo:          coreumTx.Memo,
+			Timestamp:     coreumTx.Timestamp,
 		})
-		if err != nil {
-			return err
-		}
 	}
-	return nil
+
+	return writeTxsToCSV(txs, path)
 }

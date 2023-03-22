@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -9,8 +10,16 @@ import (
 // flags defined for cmd.
 const (
 	chainIDFlag      = "chain-id"
+	startDateFlag    = "start-date"
 	coreumNodeFlag   = "coreum-node"
 	coreumWalletFlag = "coreum-wallet"
+
+	xrplRPCAPIURLFlag        = "xrpl-rpc-api-url"
+	xrplHistoricalAPIURLFlag = "xrpl-historical-api-url"
+	xrplAccountFlag          = "xrpl-account"
+	xrplCurrencyFlag         = "xrpl-currency"
+	xrplIssuerFlag           = "xrpl-issuer"
+	xrplChainIndexFlag       = "xrpl-chain-index"
 )
 
 func rootCmd() *cobra.Command {
@@ -19,10 +28,20 @@ func rootCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(coreumCmd())
+	cmd.AddCommand(xrplCmd())
 
-	cmd.PersistentFlags().String(chainIDFlag, "coreum-mainnet-1", "specify the chain id (coreum-mainnet-1,coreum-testnet-1).")
-	cmd.PersistentFlags().String(coreumNodeFlag, "", "specify the rpc address of the coreum node.")
-	cmd.PersistentFlags().String(coreumWalletFlag, "", "specify multichain wallet on coreum.")
+	cmd.PersistentFlags().String(chainIDFlag, "coreum-mainnet-1", "chain id (coreum-mainnet-1,coreum-testnet-1)")
+	cmd.PersistentFlags().String(coreumNodeFlag, "", "rpc address of the coreum node")
+	cmd.PersistentFlags().String(coreumWalletFlag, "", "multichain wallet on coreum")
+	cmd.PersistentFlags().String(startDateFlag, "", fmt.Sprintf("date to fetch from, format: %s", time.DateOnly))
+
+	cmd.PersistentFlags().String(xrplRPCAPIURLFlag, "", "xrpl RPC address")
+	cmd.PersistentFlags().String(xrplHistoricalAPIURLFlag, "", "xrpl historical API address")
+	cmd.PersistentFlags().String(xrplAccountFlag, "", "xrpl account")
+	cmd.PersistentFlags().String(xrplCurrencyFlag, "", "xrpl hex currency")
+	cmd.PersistentFlags().String(xrplIssuerFlag, "", "xrpl issuer")
+	cmd.PersistentFlags().String(xrplChainIndexFlag, "", "xrpl chain index")
+
 	return cmd
 }
 
@@ -90,6 +109,48 @@ func coreumIncomingCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func xrplCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "xrpl",
+		Short: "Watch xrpl account for transactions and write them to file",
+	}
+
+	cmd.AddCommand(
+		xrplIncomingCmd(),
+	)
+
+	return cmd
+}
+
+func xrplIncomingCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "incoming",
+		Short: "Write incoming transactions from xrpl address to csv file",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			config, ctx, log, err := setup(cmd)
+			if err != nil {
+				return err
+			}
+
+			log.Info(fmt.Sprintf("Fetching incoming transactions for %s xrpl account", config.xrplAccount))
+			txs, err := GetXRPLPaymentTransactions(ctx, config.xrplRPCAPIURL, config.xrplHistoricalAPIURL, config.xrplAccount, config.xrplCurrency, config.xrplIssuer, config.startDate)
+			if err != nil {
+				return err
+			}
+
+			filteredTxs := FilterXRPLBridgeTransactionsAndConvertToExportItem(config.xrplChainIndex, txs)
+			err = writeTxsToCSV(filteredTxs, "datafiles/incoming-on-xrpl.csv")
+			if err != nil {
+				return err
+			}
+
 			return nil
 		},
 	}
