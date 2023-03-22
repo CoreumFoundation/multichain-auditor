@@ -55,7 +55,7 @@ func findTxsWithSingleBankSend(ctx context.Context, clientCtx client.Context, ev
 	log := logger.Get(ctx)
 	tmEvents := []string{event}
 	page := 0
-	limit := 30
+	limit := 500
 	var response []BankSendWithMemo
 	getMore := true
 	for getMore {

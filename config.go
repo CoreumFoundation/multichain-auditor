@@ -9,7 +9,6 @@ import (
 	"github.com/CoreumFoundation/coreum/pkg/config"
 	"github.com/CoreumFoundation/coreum/pkg/config/constant"
 	"github.com/CoreumFoundation/faucet/pkg/logger"
-	"github.com/CoreumFoundation/faucet/pkg/signal"
 )
 
 const (
@@ -31,7 +30,6 @@ func setup(cmd *cobra.Command) (Config, context.Context, *zap.Logger, error) {
 	loggerConfig, _ := logger.ConfigureWithCLI(logger.ToolDefaultConfig)
 	log := logger.New(loggerConfig)
 	ctx := logger.WithLogger(context.Background(), log)
-	ctx = signal.TerminateSignal(ctx)
 
 	config, err := getConfig(cmd)
 	if err != nil {
