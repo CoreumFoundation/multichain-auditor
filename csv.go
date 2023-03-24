@@ -86,17 +86,17 @@ func WriteTxsDiscrepancyToCSV(discrepancies []TxDiscrepancy, path string) error 
 
 	for _, discrepancy := range discrepancies {
 		err := writer.Write([]string{
-			discrepancy.XrplHash,
-			discrepancy.XrplAmount.String(),
-			discrepancy.XrplTargetAddress,
-			discrepancy.XrplMemo,
-			discrepancy.XrplTimestamp.String(),
-			discrepancy.CoreumHash,
-			discrepancy.CoreumAmount.String(),
+			discrepancy.XrplTx.Hash,
+			discrepancy.XrplTx.Amount.String(),
+			discrepancy.XrplTx.TargetAddress,
+			discrepancy.XrplTx.Memo,
+			discrepancy.XrplTx.Timestamp.String(),
+			discrepancy.CoreumTx.Hash,
+			discrepancy.CoreumTx.Amount.String(),
 			convertBigIntSliceToString(discrepancy.AmountsWithoutFee),
-			discrepancy.CoreumTargetAddress,
-			discrepancy.CoreumMemo,
-			discrepancy.CoreumTimestamp.String(),
+			discrepancy.CoreumTx.TargetAddress,
+			discrepancy.CoreumTx.Memo,
+			discrepancy.CoreumTx.Timestamp.String(),
 			discrepancy.BridgingTime.String(),
 			discrepancy.Discrepancy,
 		})

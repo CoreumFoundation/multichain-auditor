@@ -81,12 +81,15 @@ func TestFindAuditTxDiscrepancies(t *testing.T) {
 			},
 			want: []TxDiscrepancy{
 				{
-					CoreumHash:          "coreHash1",
-					CoreumAmount:        big.NewInt(123),
-					CoreumTargetAddress: "core1",
-					CoreumMemo:          "invalid-memo",
-					CoreumTimestamp:     time.Date(2023, time.Month(1), 1, 0, 0, 0, 0, time.UTC),
-					Discrepancy:         DiscrepancyInvalidMemoOnCoreum,
+					CoreumTx: AuditTx{
+						Hash:          "coreHash1",
+						Amount:        big.NewInt(123),
+						TargetAddress: "core1",
+						Memo:          "invalid-memo",
+						Timestamp:     time.Date(2023, time.Month(1), 1, 0, 0, 0, 0, time.UTC),
+					},
+
+					Discrepancy: DiscrepancyInvalidMemoOnCoreum,
 				},
 			},
 		},
@@ -122,12 +125,14 @@ func TestFindAuditTxDiscrepancies(t *testing.T) {
 			},
 			want: []TxDiscrepancy{
 				{
-					CoreumHash:          "coreHash2",
-					CoreumAmount:        big.NewInt(123),
-					CoreumTargetAddress: "core2",
-					CoreumMemo:          bridgeChainIndex + ":" + "xrplHash1" + ":0",
-					CoreumTimestamp:     time.Date(2023, time.Month(1), 1, 0, 0, 0, 0, time.UTC),
-					Discrepancy:         DiscrepancyDuplicatedXrplTxHashInMemoOnCoreum,
+					CoreumTx: AuditTx{
+						Hash:          "coreHash2",
+						Amount:        big.NewInt(123),
+						TargetAddress: "core2",
+						Memo:          bridgeChainIndex + ":" + "xrplHash1" + ":0",
+						Timestamp:     time.Date(2023, time.Month(1), 1, 0, 0, 0, 0, time.UTC),
+					},
+					Discrepancy: DiscrepancyDuplicatedXrplTxHashInMemoOnCoreum,
 				},
 			},
 		},
@@ -147,12 +152,14 @@ func TestFindAuditTxDiscrepancies(t *testing.T) {
 			},
 			want: []TxDiscrepancy{
 				{
-					XrplHash:          "xrplHash1",
-					XrplAmount:        big.NewInt(123),
-					XrplTargetAddress: "core1",
-					XrplMemo:          "core1:" + bridgeChainIndex,
-					XrplTimestamp:     time.Date(2023, time.Month(1), 1, 0, 0, 0, 0, time.UTC),
-					Discrepancy:       DiscrepancyOrphanXrplTx,
+					XrplTx: AuditTx{
+						Hash:          "xrplHash1",
+						Amount:        big.NewInt(123),
+						TargetAddress: "core1",
+						Memo:          "core1:" + bridgeChainIndex,
+						Timestamp:     time.Date(2023, time.Month(1), 1, 0, 0, 0, 0, time.UTC),
+					},
+					Discrepancy: DiscrepancyOrphanXrplTx,
 				},
 			},
 		},
@@ -180,18 +187,20 @@ func TestFindAuditTxDiscrepancies(t *testing.T) {
 			},
 			want: []TxDiscrepancy{
 				{
-					XrplHash:          "xrplHash1",
-					XrplAmount:        big.NewInt(123),
-					XrplTargetAddress: "core2",
-					XrplMemo:          "core2:" + bridgeChainIndex,
-					XrplTimestamp:     time.Date(2023, time.Month(1), 1, 0, 0, 0, 0, time.UTC),
-
-					CoreumHash:          "coreHash1",
-					CoreumAmount:        big.NewInt(123),
-					CoreumTargetAddress: "core1",
-					CoreumMemo:          bridgeChainIndex + ":" + "xrplHash1" + ":0",
-					CoreumTimestamp:     time.Date(2023, time.Month(1), 1, 0, 0, 0, 0, time.UTC),
-
+					XrplTx: AuditTx{
+						Hash:          "xrplHash1",
+						Amount:        big.NewInt(123),
+						TargetAddress: "core2",
+						Memo:          "core2:" + bridgeChainIndex,
+						Timestamp:     time.Date(2023, time.Month(1), 1, 0, 0, 0, 0, time.UTC),
+					},
+					CoreumTx: AuditTx{
+						Hash:          "coreHash1",
+						Amount:        big.NewInt(123),
+						TargetAddress: "core1",
+						Memo:          bridgeChainIndex + ":" + "xrplHash1" + ":0",
+						Timestamp:     time.Date(2023, time.Month(1), 1, 0, 0, 0, 0, time.UTC),
+					},
 					Discrepancy: DiscrepancyDifferentTargetAddressesOnXrplAndCoreum,
 				},
 			},
@@ -221,20 +230,22 @@ func TestFindAuditTxDiscrepancies(t *testing.T) {
 			},
 			want: []TxDiscrepancy{
 				{
-					XrplHash:          "xrplHash1",
-					XrplAmount:        big.NewInt(123),
-					XrplTargetAddress: "core1",
-					XrplMemo:          "core1:" + bridgeChainIndex,
-					XrplTimestamp:     time.Date(2023, time.Month(1), 1, 0, 0, 0, 0, time.UTC),
-
-					CoreumHash:          "coreHash1",
-					CoreumAmount:        big.NewInt(124),
-					AmountsWithoutFee:   []*big.Int{big.NewInt(123)},
-					CoreumTargetAddress: "core1",
-					CoreumMemo:          bridgeChainIndex + ":" + "xrplHash1" + ":0",
-					CoreumTimestamp:     time.Date(2023, time.Month(1), 1, 0, 0, 0, 0, time.UTC),
-
-					Discrepancy: DiscrepancyDifferentAmountOnXrplAndCoreum,
+					XrplTx: AuditTx{
+						Hash:          "xrplHash1",
+						Amount:        big.NewInt(123),
+						TargetAddress: "core1",
+						Memo:          "core1:" + bridgeChainIndex,
+						Timestamp:     time.Date(2023, time.Month(1), 1, 0, 0, 0, 0, time.UTC),
+					},
+					CoreumTx: AuditTx{
+						Hash:          "coreHash1",
+						Amount:        big.NewInt(124),
+						TargetAddress: "core1",
+						Memo:          bridgeChainIndex + ":" + "xrplHash1" + ":0",
+						Timestamp:     time.Date(2023, time.Month(1), 1, 0, 0, 0, 0, time.UTC),
+					},
+					AmountsWithoutFee: []*big.Int{big.NewInt(123)},
+					Discrepancy:       DiscrepancyDifferentAmountOnXrplAndCoreum,
 				},
 			},
 		},
@@ -253,11 +264,13 @@ func TestFindAuditTxDiscrepancies(t *testing.T) {
 			},
 			want: []TxDiscrepancy{
 				{
-					CoreumHash:          "coreHash1",
-					CoreumAmount:        big.NewInt(123),
-					CoreumTargetAddress: "core1",
-					CoreumMemo:          bridgeChainIndex + ":" + "xrplHash1" + ":0",
-					CoreumTimestamp:     time.Date(2023, time.Month(1), 1, 0, 0, 0, 0, time.UTC),
+					CoreumTx: AuditTx{
+						Hash:          "coreHash1",
+						Amount:        big.NewInt(123),
+						TargetAddress: "core1",
+						Memo:          bridgeChainIndex + ":" + "xrplHash1" + ":0",
+						Timestamp:     time.Date(2023, time.Month(1), 1, 0, 0, 0, 0, time.UTC),
+					},
 
 					Discrepancy: DiscrepancyOrphanCoreumTx,
 				},

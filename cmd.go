@@ -146,7 +146,7 @@ func coreumIncomingCmd() *cobra.Command {
 func xrplCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "xrpl",
-		Short: "Fetch xrpl account for transactions",
+		Short: "Fetch xrpl account transactions",
 	}
 
 	cmd.AddCommand(

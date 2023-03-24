@@ -31,21 +31,12 @@ type AuditTx struct {
 
 // TxDiscrepancy represent discrepancy of the xrpl and coreum transactions.
 type TxDiscrepancy struct {
-	XrplHash          string
-	XrplAmount        *big.Int
-	XrplTargetAddress string
-	XrplMemo          string
-	XrplTimestamp     time.Time
+	XrplTx   AuditTx
+	CoreumTx AuditTx
 
-	CoreumHash          string
-	CoreumAmount        *big.Int
-	AmountsWithoutFee   []*big.Int
-	CoreumTargetAddress string
-	CoreumMemo          string
-	CoreumTimestamp     time.Time
-	BridgingTime        time.Duration
-
-	Discrepancy string
+	AmountsWithoutFee []*big.Int
+	BridgingTime      time.Duration
+	Discrepancy       string
 }
 
 // FindAuditTxDiscrepancies find the discrepancies between coreum and XRPL transactions.
@@ -120,7 +111,7 @@ func FindAuditTxDiscrepancies(
 	}
 
 	sort.Slice(discrepancies, func(i, j int) bool {
-		return discrepancies[i].XrplTimestamp.After(discrepancies[j].XrplTimestamp)
+		return discrepancies[i].XrplTx.Timestamp.After(discrepancies[j].XrplTx.Timestamp)
 	})
 
 	// filter by xrpl timestamp
@@ -128,9 +119,9 @@ func FindAuditTxDiscrepancies(
 
 	for _, discrepancy := range discrepancies {
 		// by default, we use the xrpl time, but if the time is zero (possible for coreum orphan transactions) we use coreum
-		filterTime := discrepancy.XrplTimestamp
+		filterTime := discrepancy.XrplTx.Timestamp
 		if filterTime.IsZero() {
-			filterTime = discrepancy.CoreumTimestamp
+			filterTime = discrepancy.CoreumTx.Timestamp
 		}
 		if filterTime.After(fromDateTime) {
 			continue
@@ -151,21 +142,11 @@ func fillDiscrepancy(xrplTx, coreumTx AuditTx, discrepancy string, amountsWithou
 	}
 
 	return TxDiscrepancy{
-		XrplHash:          xrplTx.Hash,
-		XrplAmount:        xrplTx.Amount,
-		XrplTargetAddress: xrplTx.TargetAddress,
-		XrplMemo:          xrplTx.Memo,
-		XrplTimestamp:     xrplTx.Timestamp,
-
-		CoreumHash:          coreumTx.Hash,
-		CoreumAmount:        coreumTx.Amount,
-		AmountsWithoutFee:   amountsWithoutFee,
-		CoreumTargetAddress: coreumTx.TargetAddress,
-		CoreumMemo:          coreumTx.Memo,
-		CoreumTimestamp:     coreumTx.Timestamp,
-		BridgingTime:        bridgingTime,
-
-		Discrepancy: discrepancy,
+		XrplTx:            xrplTx,
+		CoreumTx:          coreumTx,
+		AmountsWithoutFee: amountsWithoutFee,
+		BridgingTime:      bridgingTime,
+		Discrepancy:       discrepancy,
 	}
 }
 

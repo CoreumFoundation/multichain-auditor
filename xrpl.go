@@ -23,7 +23,7 @@ var (
 	xrplTxFetcherPoolSize       = 100
 	xrplHistoricalDataPageLimit = 1000 // this limit is maximum for the historical API
 	xrplreceivedTxType          = "received"
-	tenPowSixFloat              = big.NewFloat(0).SetInt(big.NewInt(0).Exp(big.NewInt(10), big.NewInt(6), nil))
+	oneMillionFloat             = big.NewFloat(1_000_000)
 )
 
 // Historical models
@@ -277,7 +277,7 @@ func decodeXRPLBridgeMemo(hexMemo, bridgeChainIndex string) (string, string, boo
 }
 
 func convertFloatToSixDecimalsInt(amount *big.Float) *big.Int {
-	convertedAmount, _ := big.NewFloat(0).Mul(amount, tenPowSixFloat).Int(nil)
+	convertedAmount, _ := big.NewFloat(0).Mul(amount, oneMillionFloat).Int(nil)
 	return convertedAmount
 }
 
