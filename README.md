@@ -18,7 +18,7 @@ chmod +x multichain-auditor
 ./multichain-auditor help
 ```
 
-### Export courem incoming transactions
+### Export coreum incoming transactions
 
 ```bash
 ./multichain-auditor coreum export-incoming
@@ -53,7 +53,3 @@ chmod +x multichain-auditor
 ```bash
 ./multichain-auditor discrepancy export --from-date-time="2023-03-23 00:00:00" --to-date-time="2023-01-01 00:00:00"
 ```
-
-Pay attention, when you use the time boundaries, the discrepancies will be found within that range. Hence,
-If the tx on the cream side was created after the `from-data-time`, the discrepancy will be found. It means in most cases better to 
-use `to-date-time` only, where the `to-date-time` is the end of the fully paid period.

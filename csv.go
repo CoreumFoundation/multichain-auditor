@@ -29,7 +29,6 @@ func WriteAuditTxsToCSV(txs []AuditTx, path string) error {
 		"Hash",
 		"FromAddress",
 		"ToAddress",
-		"TargetAddress",
 		"Amount",
 		"Memo",
 		"Timestamp",
@@ -42,7 +41,6 @@ func WriteAuditTxsToCSV(txs []AuditTx, path string) error {
 			tx.Hash,
 			tx.FromAddress,
 			tx.ToAddress,
-			tx.TargetAddress,
 			tx.Amount.String(),
 			tx.Memo,
 			tx.Timestamp.String(),
@@ -79,7 +77,8 @@ func WriteTxsDiscrepancyToCSV(discrepancies []TxDiscrepancy, path string) error 
 		"AmountsWithoutFee",
 		"CoreumTargetAddress",
 		"CoreumMemo",
-		"CoreumTimestamp ",
+		"CoreumTimestamp",
+		"BridgingTime",
 		"Discrepancy",
 	}); err != nil {
 		return err
@@ -98,6 +97,7 @@ func WriteTxsDiscrepancyToCSV(discrepancies []TxDiscrepancy, path string) error 
 			discrepancy.CoreumTargetAddress,
 			discrepancy.CoreumMemo,
 			discrepancy.CoreumTimestamp.String(),
+			discrepancy.BridgingTime.String(),
 			discrepancy.Discrepancy,
 		})
 		if err != nil {

@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	defaultFromDateTime = time.Now()
+	defaultFromDateTime = time.Now().UTC()
 	defaultToDateTime   = time.Date(2023, time.Month(3), 1, 0, 0, 0, 0, time.UTC)
 )
 
@@ -120,7 +120,7 @@ func coreumIncomingCmd() *cobra.Command {
 			coreumAuditTxs, err := GetCoreumAuditTransactions(
 				ctx,
 				clientCtx,
-				fmt.Sprintf("coin_spent.spender='%s'", config.CoreumAccount),
+				fmt.Sprintf("coin_received.receiver='%s'", config.CoreumAccount),
 				config.Denom,
 				config.FromDateTime,
 				config.ToDateTime,
@@ -228,8 +228,8 @@ func discrepancyAllCmd() *cobra.Command {
 				config.XrplCurrency,
 				config.XrplIssuer,
 				config.BridgeChainIndex,
-				config.FromDateTime,
-				config.ToDateTime,
+				defaultFromDateTime, // for the discrepancies we export full history and filter later
+				defaultToDateTime,
 			)
 			if err != nil {
 				return err
@@ -242,14 +242,21 @@ func discrepancyAllCmd() *cobra.Command {
 				clientCtx,
 				fmt.Sprintf("coin_spent.spender='%s'", config.CoreumAccount),
 				config.Denom,
-				config.FromDateTime,
-				config.ToDateTime,
+				defaultFromDateTime, // for the discrepancies we export full history and filter later
+				defaultToDateTime,
 			)
 			if err != nil {
 				return err
 			}
 
-			discrepancies := FindAuditTxDiscrepancies(xrplAuditTxs, coreumAuditTxs, config.FeeConfigs, config.IncludeAll)
+			discrepancies := FindAuditTxDiscrepancies(
+				xrplAuditTxs,
+				coreumAuditTxs,
+				config.FeeConfigs,
+				config.IncludeAll,
+				config.FromDateTime,
+				config.ToDateTime,
+			)
 			log.Info(fmt.Sprintf("Found %d discrepancies", len(discrepancies)))
 			err = WriteTxsDiscrepancyToCSV(discrepancies, config.OutputDocument)
 			if err != nil {

@@ -43,12 +43,18 @@ type TxDiscrepancy struct {
 	CoreumTargetAddress string
 	CoreumMemo          string
 	CoreumTimestamp     time.Time
+	BridgingTime        time.Duration
 
 	Discrepancy string
 }
 
 // FindAuditTxDiscrepancies find the discrepancies between coreum and XRPL transactions.
-func FindAuditTxDiscrepancies(xrplTxs, coreumTxs []AuditTx, feeConfigs []FeeConfig, includeAll bool) []TxDiscrepancy {
+func FindAuditTxDiscrepancies(
+	xrplTxs, coreumTxs []AuditTx,
+	feeConfigs []FeeConfig,
+	includeAll bool,
+	fromDateTime, toDateTime time.Time,
+) []TxDiscrepancy {
 	discrepancies := make([]TxDiscrepancy, 0)
 	xrplTxsMap := make(map[string]AuditTx)
 	for _, xrplTx := range xrplTxs {
@@ -117,10 +123,33 @@ func FindAuditTxDiscrepancies(xrplTxs, coreumTxs []AuditTx, feeConfigs []FeeConf
 		return discrepancies[i].XrplTimestamp.After(discrepancies[j].XrplTimestamp)
 	})
 
-	return discrepancies
+	// filter by xrpl timestamp
+	filteredDiscrepancies := make([]TxDiscrepancy, 0)
+
+	for _, discrepancy := range discrepancies {
+		// by default, we use the xrpl time, but if the time is zero (possible for coreum orphan transactions) we use coreum
+		filterTime := discrepancy.XrplTimestamp
+		if filterTime.IsZero() {
+			filterTime = discrepancy.CoreumTimestamp
+		}
+		if filterTime.After(fromDateTime) {
+			continue
+		}
+		if filterTime.Before(toDateTime) {
+			continue
+		}
+		filteredDiscrepancies = append(filteredDiscrepancies, discrepancy)
+	}
+
+	return filteredDiscrepancies
 }
 
 func fillDiscrepancy(xrplTx, coreumTx AuditTx, discrepancy string, amountsWithoutFee []*big.Int) TxDiscrepancy {
+	bridgingTime := time.Duration(0)
+	if !xrplTx.Timestamp.IsZero() && !coreumTx.Timestamp.IsZero() {
+		bridgingTime = coreumTx.Timestamp.Sub(xrplTx.Timestamp)
+	}
+
 	return TxDiscrepancy{
 		XrplHash:          xrplTx.Hash,
 		XrplAmount:        xrplTx.Amount,
@@ -134,6 +163,7 @@ func fillDiscrepancy(xrplTx, coreumTx AuditTx, discrepancy string, amountsWithou
 		CoreumTargetAddress: coreumTx.TargetAddress,
 		CoreumMemo:          coreumTx.Memo,
 		CoreumTimestamp:     coreumTx.Timestamp,
+		BridgingTime:        bridgingTime,
 
 		Discrepancy: discrepancy,
 	}

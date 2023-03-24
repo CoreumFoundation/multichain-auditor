@@ -240,8 +240,8 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 
 	return Config{
 		ChainID:              chainID,
-		FromDateTime:         fromDateTime,
-		ToDateTime:           toDateTime,
+		FromDateTime:         fromDateTime.UTC(),
+		ToDateTime:           toDateTime.UTC(),
 		Denom:                network.Denom(),
 		CoreumAccount:        coreumAccount,
 		CoreumRPCURL:         coreumRPCAddress,
