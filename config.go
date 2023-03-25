@@ -55,9 +55,12 @@ type Config struct {
 
 // FeeConfig the settings used for the calculation of the final amount which includes fee.
 type FeeConfig struct {
-	FeeRatio *big.Int // to get percent you need to div it by 1000, we need it to make the calculation without floats
-	MinFee   *big.Int
-	MaxFee   *big.Int
+	StartTime time.Time
+	FeeRatio  *big.Int // to get percent you need to div it by 1000, we need it to make the calculation without floats
+	MinFee    *big.Int
+	MaxFee    *big.Int
+	MinAmount *big.Int
+	MaxAmount *big.Int
 }
 
 func Setup(cmd *cobra.Command) (Config, context.Context, *zap.Logger, error) {
@@ -227,14 +230,28 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 	// the feeConfigs are fixed, and can be modified in the code only
 	feeConfigs := []FeeConfig{
 		{
-			FeeRatio: big.NewInt(1),     // 0.1%
-			MinFee:   big.NewInt(7000),  // 0.007 CORE
-			MaxFee:   big.NewInt(50000), // 0.05 CORE
+			StartTime: time.Date(2023, time.Month(3), 24, 17, 0, 0, 0, time.UTC),
+			FeeRatio:  big.NewInt(1),                // 0.1%
+			MinFee:    big.NewInt(2_400000),         // 2.4 CORE
+			MaxFee:    big.NewInt(477_000000),       // 477 CORE
+			MinAmount: big.NewInt(4_800000),         // 4.8 CORE
+			MaxAmount: big.NewInt(2_400_000_000000), // 2.400.000 CORE
 		},
 		{
-			FeeRatio: big.NewInt(1),         // 0.1%
-			MinFee:   big.NewInt(2400000),   // 2.4 CORE
-			MaxFee:   big.NewInt(477000000), // 477 CORE
+			StartTime: time.Date(2023, time.Month(3), 17, 13, 0, 0, 0, time.UTC),
+			FeeRatio:  big.NewInt(1),          // 0.1%
+			MinFee:    big.NewInt(7000),       // 0.007 CORE
+			MaxFee:    big.NewInt(50000),      // 0.05 CORE
+			MinAmount: big.NewInt(8000),       // 0.008 CORE
+			MaxAmount: big.NewInt(100_000000), // 100 CORE
+		},
+		{
+			StartTime: time.Date(2023, time.Month(1), 1, 0, 0, 0, 0, time.UTC),
+			FeeRatio:  big.NewInt(1),                // 0.1%
+			MinFee:    big.NewInt(2_400000),         // 2.4 CORE
+			MaxFee:    big.NewInt(477_000000),       // 477 CORE
+			MinAmount: big.NewInt(4_800000),         // 4.8 CORE
+			MaxAmount: big.NewInt(2_400_000_000000), // 2.400.000 CORE
 		},
 	}
 

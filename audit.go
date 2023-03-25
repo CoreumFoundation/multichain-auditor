@@ -14,6 +14,8 @@ const (
 	DiscrepancyDifferentTargetAddressesOnXrplAndCoreum = "different target addresses on xrpl and coreum"
 	DiscrepancyDifferentAmountOnXrplAndCoreum          = "different amount on xrpl and coreum"
 	DiscrepancyOrphanCoreumTx                          = "orphan coreum tx"
+
+	InfoAmountOutOfRange = "not a discrepancy: amount out of range"
 )
 
 var thousandInt = big.NewInt(1000)
@@ -34,9 +36,9 @@ type TxDiscrepancy struct {
 	XrplTx   AuditTx
 	CoreumTx AuditTx
 
-	AmountsWithoutFee []*big.Int
-	BridgingTime      time.Duration
-	Discrepancy       string
+	ExpectedAmount *big.Int
+	BridgingTime   time.Duration
+	Discrepancy    string
 }
 
 // FindAuditTxDiscrepancies find the discrepancies between coreum and XRPL transactions.
@@ -53,6 +55,12 @@ func FindAuditTxDiscrepancies(
 	}
 
 	xrplTxHashToCoreumTxMap := make(map[string]AuditTx)
+
+	// we sort the configs to find first which is before
+	sort.Slice(feeConfigs, func(i, j int) bool {
+		return feeConfigs[i].StartTime.After(feeConfigs[j].StartTime)
+	})
+
 	for _, coreumTx := range coreumTxs {
 		xrplTxHash := decodeXrplTxHashFromCoreumMemo(coreumTx.Memo)
 		if xrplTxHash == "" {
@@ -68,6 +76,23 @@ func FindAuditTxDiscrepancies(
 	}
 
 	for xrplTxHash, xrplTx := range xrplTxsMap {
+		var feeConfig FeeConfig
+		for _, config := range feeConfigs {
+			if xrplTx.Timestamp.After(config.StartTime) {
+				feeConfig = config
+				break
+			}
+		}
+
+		// the tx is out of range for the current min/max we can skip it
+		if feeConfig.MinAmount.Cmp(xrplTx.Amount) == 1 || feeConfig.MaxAmount.Cmp(xrplTx.Amount) == -1 {
+			if includeAll {
+				discrepancies = append(discrepancies, fillDiscrepancy(xrplTx, AuditTx{}, InfoAmountOutOfRange, nil))
+			}
+			delete(xrplTxsMap, xrplTxHash)
+			continue
+		}
+
 		coreumTx, ok := xrplTxHashToCoreumTxMap[xrplTxHash]
 		if !ok {
 			discrepancies = append(discrepancies, fillDiscrepancy(xrplTx, AuditTx{}, DiscrepancyOrphanXrplTx, nil))
@@ -81,22 +106,15 @@ func FindAuditTxDiscrepancies(
 			continue
 		}
 
-		amountMatches := false
-		amountsWithoutFee := make([]*big.Int, 0)
-		for _, feeConfig := range feeConfigs {
-			amountWithoutFee := computeAmountWithoutFee(xrplTx.Amount, feeConfig)
-			if amountWithoutFee.Cmp(coreumTx.Amount) == 0 {
-				amountMatches = true
-				break
-			}
-			amountsWithoutFee = append(amountsWithoutFee, amountWithoutFee)
-		}
-		if !amountMatches {
-			discrepancies = append(discrepancies, fillDiscrepancy(xrplTx, coreumTx, DiscrepancyDifferentAmountOnXrplAndCoreum, amountsWithoutFee))
+		amountWithoutFee := computeAmountWithoutFee(xrplTx.Amount, feeConfig)
+		if amountWithoutFee.Cmp(coreumTx.Amount) != 0 {
+			discrepancies = append(discrepancies, fillDiscrepancy(xrplTx, coreumTx, DiscrepancyDifferentAmountOnXrplAndCoreum, amountWithoutFee))
 			delete(xrplTxsMap, xrplTxHash)
 			delete(xrplTxHashToCoreumTxMap, xrplTxHash)
 			continue
 		}
+
+		// exclud the transactions with low amounts
 
 		if includeAll {
 			discrepancies = append(discrepancies, fillDiscrepancy(xrplTx, coreumTx, "", nil))
@@ -135,18 +153,18 @@ func FindAuditTxDiscrepancies(
 	return filteredDiscrepancies
 }
 
-func fillDiscrepancy(xrplTx, coreumTx AuditTx, discrepancy string, amountsWithoutFee []*big.Int) TxDiscrepancy {
+func fillDiscrepancy(xrplTx, coreumTx AuditTx, discrepancy string, expectedAmount *big.Int) TxDiscrepancy {
 	bridgingTime := time.Duration(0)
 	if !xrplTx.Timestamp.IsZero() && !coreumTx.Timestamp.IsZero() {
 		bridgingTime = coreumTx.Timestamp.Sub(xrplTx.Timestamp)
 	}
 
 	return TxDiscrepancy{
-		XrplTx:            xrplTx,
-		CoreumTx:          coreumTx,
-		AmountsWithoutFee: amountsWithoutFee,
-		BridgingTime:      bridgingTime,
-		Discrepancy:       discrepancy,
+		XrplTx:         xrplTx,
+		CoreumTx:       coreumTx,
+		ExpectedAmount: expectedAmount,
+		BridgingTime:   bridgingTime,
+		Discrepancy:    discrepancy,
 	}
 }
 
