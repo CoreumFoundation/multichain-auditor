@@ -1,6 +1,6 @@
 # Multichain bridge watcher
 
-This project is responsible to watch the multichain bridge and track if the bridging works
+This project is responsible for watching the multichain bridge and track if the bridging works
 correctly from XRPL to Coreum.
 
 ## Build

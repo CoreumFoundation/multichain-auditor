@@ -108,10 +108,8 @@ func WriteTxsDiscrepancyToCSV(discrepancies []TxDiscrepancy, path string) error 
 }
 
 func createFile(path string) (*os.File, error) {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if err := os.MkdirAll(filepath.Dir(path), fs.ModePerm); err != nil {
-			return nil, errors.Errorf("can't create dir, path:%s, err: %s", path, err)
-		}
+	if err := os.MkdirAll(filepath.Dir(path), fs.ModePerm); err != nil {
+		return nil, errors.Errorf("can't create dir, path:%s, err: %s", path, err)
 	}
 
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fs.ModePerm)

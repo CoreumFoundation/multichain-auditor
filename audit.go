@@ -177,6 +177,10 @@ func decodeXrplTxHashFromCoreumMemo(memo string) string {
 	return strings.ToUpper(strings.ReplaceAll(memoFragments[1], "0x", ""))
 }
 
+// computeAmountWithoutFee computes the correct fee based on the fee config
+// fee = amount * feeRation/1000
+// if fee <= minFee, fee = minFee
+// if fee >= maxFee, fee = maxFee
 func computeAmountWithoutFee(amount *big.Int, config FeeConfig) *big.Int {
 	fee := big.NewInt(0).Div(big.NewInt(0).Mul(amount, config.FeeRatio), thousandInt)
 	if fee.Cmp(config.MinFee) == -1 {
