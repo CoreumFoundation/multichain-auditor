@@ -10,8 +10,8 @@ import (
 // flags defined for cmd.
 const (
 	chainIDFlag              = "chain-id"
-	fromDateTimeFlag         = "from-date-time"
-	toDateTimeFlag           = "to-date-time"
+	afterDateTimeFlag        = "after-date-time"
+	beforeDateTimeFlag       = "before-date-time"
 	coreumNodeFlag           = "coreum-node"
 	coreumAccountFlag        = "coreum-account"
 	xrplRPCAPIURLFlag        = "xrpl-rpc-api-url"
@@ -25,8 +25,8 @@ const (
 )
 
 var (
-	defaultFromDateTime = time.Now().UTC()
-	defaultToDateTime   = time.Date(2023, time.Month(3), 1, 0, 0, 0, 0, time.UTC)
+	defaultAfterTime      = time.Now().UTC()
+	defaultBeforeDateTime = time.Date(2023, time.Month(3), 1, 0, 0, 0, 0, time.UTC)
 )
 
 func rootCmd() *cobra.Command {
@@ -41,8 +41,8 @@ func rootCmd() *cobra.Command {
 	cmd.PersistentFlags().String(chainIDFlag, "coreum-mainnet-1", "chain id (coreum-mainnet-1,coreum-testnet-1)")
 	cmd.PersistentFlags().String(coreumNodeFlag, "", "coreum rpc address")
 	cmd.PersistentFlags().String(coreumAccountFlag, "", "multichain account on coreum")
-	cmd.PersistentFlags().String(fromDateTimeFlag, defaultFromDateTime.Format(time.DateTime), fmt.Sprintf("UTC date and time to fetch from, format: %s", time.DateTime))
-	cmd.PersistentFlags().String(toDateTimeFlag, defaultToDateTime.Format(time.DateTime), fmt.Sprintf("UTC date and time to fetch to, format: %s", time.DateTime))
+	cmd.PersistentFlags().String(afterDateTimeFlag, defaultAfterTime.Format(time.DateTime), fmt.Sprintf("UTC date and time to fetch from, format: %s", time.DateTime))
+	cmd.PersistentFlags().String(beforeDateTimeFlag, defaultBeforeDateTime.Format(time.DateTime), fmt.Sprintf("UTC date and time to fetch to, format: %s", time.DateTime))
 	cmd.PersistentFlags().String(xrplRPCAPIURLFlag, "", "xrpl RPC address")
 	cmd.PersistentFlags().String(xrplHistoricalAPIURLFlag, "", "xrpl historical API address")
 	cmd.PersistentFlags().String(xrplAccountFlag, "", "xrpl account")
@@ -83,8 +83,8 @@ func coreumOutgoingCmd() *cobra.Command {
 				clientCtx,
 				fmt.Sprintf("coin_spent.spender='%s'", config.CoreumAccount),
 				config.Denom,
-				config.FromDateTime,
-				config.ToDateTime,
+				config.AfterDateTime,
+				config.BeforeDateTime,
 			)
 			if err != nil {
 				return err
@@ -122,8 +122,8 @@ func coreumIncomingCmd() *cobra.Command {
 				clientCtx,
 				fmt.Sprintf("coin_received.receiver='%s'", config.CoreumAccount),
 				config.Denom,
-				config.FromDateTime,
-				config.ToDateTime,
+				config.AfterDateTime,
+				config.BeforeDateTime,
 			)
 			if err != nil {
 				return err
@@ -175,8 +175,8 @@ func xrplIncomingCmd() *cobra.Command {
 				config.XrplCurrency,
 				config.XrplIssuer,
 				config.BridgeChainIndex,
-				config.FromDateTime,
-				config.ToDateTime,
+				config.AfterDateTime,
+				config.BeforeDateTime,
 			)
 			if err != nil {
 				return err
@@ -228,8 +228,8 @@ func discrepancyAllCmd() *cobra.Command {
 				config.XrplCurrency,
 				config.XrplIssuer,
 				config.BridgeChainIndex,
-				defaultFromDateTime, // for the discrepancies we export full history and filter later
-				defaultToDateTime,
+				defaultAfterTime, // for the discrepancies we export full history and filter later
+				defaultBeforeDateTime,
 			)
 			if err != nil {
 				return err
@@ -242,8 +242,8 @@ func discrepancyAllCmd() *cobra.Command {
 				clientCtx,
 				fmt.Sprintf("coin_spent.spender='%s'", config.CoreumAccount),
 				config.Denom,
-				defaultFromDateTime, // for the discrepancies we export full history and filter later
-				defaultToDateTime,
+				defaultAfterTime, // for the discrepancies we export full history and filter later
+				defaultBeforeDateTime,
 			)
 			if err != nil {
 				return err
@@ -254,8 +254,8 @@ func discrepancyAllCmd() *cobra.Command {
 				coreumAuditTxs,
 				config.FeeConfigs,
 				config.IncludeAll,
-				config.FromDateTime,
-				config.ToDateTime,
+				config.AfterDateTime,
+				config.BeforeDateTime,
 			)
 			log.Info(fmt.Sprintf("Found %d discrepancies", len(discrepancies)))
 			err = WriteTxsDiscrepancyToCSV(discrepancies, config.OutputDocument)

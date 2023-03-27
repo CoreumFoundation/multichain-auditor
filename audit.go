@@ -46,7 +46,7 @@ func FindAuditTxDiscrepancies(
 	xrplTxs, coreumTxs []AuditTx,
 	feeConfigs []FeeConfig,
 	includeAll bool,
-	fromDateTime, toDateTime time.Time,
+	afterDateTime, beforeDateTime time.Time,
 ) []TxDiscrepancy {
 	discrepancies := make([]TxDiscrepancy, 0)
 	xrplTxsMap := make(map[string]AuditTx)
@@ -141,10 +141,10 @@ func FindAuditTxDiscrepancies(
 		if filterTime.IsZero() {
 			filterTime = discrepancy.CoreumTx.Timestamp
 		}
-		if filterTime.After(fromDateTime) {
+		if filterTime.After(afterDateTime) {
 			continue
 		}
-		if filterTime.Before(toDateTime) {
+		if filterTime.Before(beforeDateTime) {
 			continue
 		}
 		filteredDiscrepancies = append(filteredDiscrepancies, discrepancy)

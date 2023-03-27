@@ -84,9 +84,9 @@ type xrplTransactionResp struct {
 func GetXRPLAuditTransactions(
 	ctx context.Context,
 	rpcAPIURL, historicalAPIURL, account, currency, issuer, bridgeChainIndex string,
-	fromDateTime, toDateTime time.Time,
+	afterDateTime, beforeDateTime time.Time,
 ) ([]AuditTx, error) {
-	txs, err := getXRPLPaymentTransactions(ctx, rpcAPIURL, historicalAPIURL, account, currency, issuer, fromDateTime, toDateTime)
+	txs, err := getXRPLPaymentTransactions(ctx, rpcAPIURL, historicalAPIURL, account, currency, issuer, afterDateTime, beforeDateTime)
 	if err != nil {
 		return nil, err
 	}
@@ -146,10 +146,10 @@ func filterXRPLBridgeTransactionsAndConvertToTxAudit(bridgeChainIndex string, tx
 func getXRPLPaymentTransactions(
 	ctx context.Context,
 	rpcAPIURL, historicalAPIURL, account, currency, issuer string,
-	fromDateTime, toDateTime time.Time,
+	afterDateTime, beforeDateTime time.Time,
 ) ([]xrplTransaction, error) {
 	log := logger.Get(ctx)
-	log.Info(fmt.Sprintf("Fetching xrpl txs from: %s, to: %s ...", fromDateTime.Format(time.DateTime), toDateTime.Format(time.DateTime)))
+	log.Info(fmt.Sprintf("Fetching xrpl txs from: %s, to: %s ...", afterDateTime.Format(time.DateTime), beforeDateTime.Format(time.DateTime)))
 
 	wg := sync.WaitGroup{}
 	mu := sync.Mutex{}
@@ -170,7 +170,7 @@ func getXRPLPaymentTransactions(
 			err      error
 		)
 		txHashes, marker, err = getXRPLHistoricalPaymentTransactionHashes(
-			fetchingCtx, historicalAPIURL, account, currency, issuer, marker, fromDateTime, toDateTime,
+			fetchingCtx, historicalAPIURL, account, currency, issuer, marker, afterDateTime, beforeDateTime,
 		)
 		if err != nil {
 			fetchingCtxCancel()
@@ -215,10 +215,10 @@ func getXRPLPaymentTransactions(
 
 func getXRPLHistoricalPaymentTransactionHashes(
 	ctx context.Context,
-	baseURL, account, currency, issuer, marker string, fromDateTime, toDateTime time.Time,
+	baseURL, account, currency, issuer, marker string, afterDateTime, beforeDateTime time.Time,
 ) ([]string, string, error) {
 	url := fmt.Sprintf("%s/v2/accounts/%s/payments/?type=%s&currency=%s&issuer=%s&marker=%s&limit=%d&end=%s&start=%s",
-		baseURL, account, xrplreceivedTxType, currency, issuer, marker, xrplHistoricalDataPageLimit, fromDateTime.Format(time.RFC3339), toDateTime.Format(time.RFC3339))
+		baseURL, account, xrplreceivedTxType, currency, issuer, marker, xrplHistoricalDataPageLimit, afterDateTime.Format(time.RFC3339), beforeDateTime.Format(time.RFC3339))
 	reqCtx, reqCtxCancel := context.WithTimeout(ctx, xrplRequestTimeout)
 	defer reqCtxCancel()
 	var resBody xrplAccountTransactionsResp

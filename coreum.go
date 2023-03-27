@@ -31,9 +31,9 @@ func GetCoreumAuditTransactions(
 	ctx context.Context,
 	clientCtx client.Context,
 	event, denom string,
-	fromDateTime, toDateTime time.Time,
+	afterDateTime, beforeDateTime time.Time,
 ) ([]AuditTx, error) {
-	bankTxs, err := getTxsWithSingleBankSend(ctx, clientCtx, event, fromDateTime, toDateTime)
+	bankTxs, err := getTxsWithSingleBankSend(ctx, clientCtx, event, afterDateTime, beforeDateTime)
 	if err != nil {
 		return nil, err
 	}
@@ -74,10 +74,10 @@ func getTxsWithSingleBankSend(
 	ctx context.Context,
 	clientCtx client.Context,
 	event string,
-	fromDateTime, toDateTime time.Time,
+	afterDateTime, beforeDateTime time.Time,
 ) ([]bankSendWithMemo, error) {
 	log := logger.Get(ctx)
-	log.Info(fmt.Sprintf("Fetching coreum txs from: %s, to: %s ...", fromDateTime.Format(time.DateTime), toDateTime.Format(time.DateTime)))
+	log.Info(fmt.Sprintf("Fetching coreum txs from: %s, to: %s ...", afterDateTime.Format(time.DateTime), beforeDateTime.Format(time.DateTime)))
 
 	tmEvents := []string{event}
 	page := 0
@@ -119,10 +119,10 @@ func getTxsWithSingleBankSend(
 				return nil, errors.New("message is not bank MsgSend type")
 			}
 			timestamp, err := time.Parse(time.RFC3339, txAny.Timestamp)
-			if timestamp.After(fromDateTime) {
+			if timestamp.After(afterDateTime) {
 				continue
 			}
-			if timestamp.Before(toDateTime) {
+			if timestamp.Before(beforeDateTime) {
 				getMore = false
 				break
 			}

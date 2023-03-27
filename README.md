@@ -51,5 +51,5 @@ chmod +x multichain-auditor
 ### Export discrepancies with time boundaries
 
 ```bash
-./multichain-auditor discrepancy export --from-date-time="2023-03-23 00:00:00" --to-date-time="2023-01-01 00:00:00"
+./multichain-auditor discrepancy export --after-date-time="2023-03-23 00:00:00" --before-date-time="2023-01-01 00:00:00"
 ```

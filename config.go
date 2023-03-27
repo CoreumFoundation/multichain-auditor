@@ -37,8 +37,8 @@ const (
 
 type Config struct {
 	ChainID              string
-	FromDateTime         time.Time
-	ToDateTime           time.Time
+	AfterDateTime        time.Time
+	BeforeDateTime       time.Time
 	Denom                string
 	CoreumAccount        string
 	CoreumRPCURL         string
@@ -82,22 +82,22 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 		return Config{}, err
 	}
 
-	fromDateTimeString, err := cmd.Flags().GetString(fromDateTimeFlag)
+	afterDateTimeString, err := cmd.Flags().GetString(afterDateTimeFlag)
 	if err != nil {
 		return Config{}, err
 	}
-	fromDateTime, err := time.Parse(time.DateTime, fromDateTimeString)
+	afterDateTime, err := time.Parse(time.DateTime, afterDateTimeString)
 	if err != nil {
-		return Config{}, errors.Errorf("error parsing %s the expected format is %s", fromDateTimeFlag, time.DateTime)
+		return Config{}, errors.Errorf("error parsing %s the expected format is %s", afterDateTimeFlag, time.DateTime)
 	}
 
-	toDateTimeString, err := cmd.Flags().GetString(toDateTimeFlag)
+	beforeDateTimeString, err := cmd.Flags().GetString(beforeDateTimeFlag)
 	if err != nil {
 		return Config{}, err
 	}
-	toDateTime, err := time.Parse(time.DateTime, toDateTimeString)
+	beforeDateTime, err := time.Parse(time.DateTime, beforeDateTimeString)
 	if err != nil {
-		return Config{}, errors.Errorf("error parsing %s the expected format is %s", toDateTimeFlag, time.DateTime)
+		return Config{}, errors.Errorf("error parsing %s the expected format is %s", beforeDateTimeFlag, time.DateTime)
 	}
 
 	network, err := config.NetworkByChainID(constant.ChainID(chainID))
@@ -228,6 +228,8 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 	}
 
 	// the feeConfigs are fixed, and can be modified in the code only
+	// we use the list of the configs since the fees have been modified during the bridge life, and
+	// each time period uses different fee configs.
 	feeConfigs := []FeeConfig{
 		{
 			StartTime: time.Date(2023, time.Month(3), 24, 17, 0, 0, 0, time.UTC),
@@ -257,8 +259,8 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 
 	return Config{
 		ChainID:              chainID,
-		FromDateTime:         fromDateTime.UTC(),
-		ToDateTime:           toDateTime.UTC(),
+		AfterDateTime:        afterDateTime.UTC(),
+		BeforeDateTime:       beforeDateTime.UTC(),
 		Denom:                network.Denom(),
 		CoreumAccount:        coreumAccount,
 		CoreumRPCURL:         coreumRPCAddress,
