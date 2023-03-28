@@ -46,7 +46,7 @@ func FindAuditTxDiscrepancies(
 	xrplTxs, coreumTxs []AuditTx,
 	feeConfigs []FeeConfig,
 	includeAll bool,
-	afterDateTime, beforeDateTime time.Time,
+	beforeDateTime, afterDateTime time.Time,
 ) []TxDiscrepancy {
 	discrepancies := make([]TxDiscrepancy, 0)
 	xrplTxsMap := make(map[string]AuditTx)
@@ -114,8 +114,6 @@ func FindAuditTxDiscrepancies(
 			continue
 		}
 
-		// exclud the transactions with low amounts
-
 		if includeAll {
 			discrepancies = append(discrepancies, fillDiscrepancy(xrplTx, coreumTx, "", nil))
 		}
@@ -123,7 +121,6 @@ func FindAuditTxDiscrepancies(
 		delete(xrplTxsMap, xrplTxHash)
 		delete(xrplTxHashToCoreumTxMap, xrplTxHash)
 	}
-
 	for _, coreumTx := range xrplTxHashToCoreumTxMap {
 		discrepancies = append(discrepancies, fillDiscrepancy(AuditTx{}, coreumTx, DiscrepancyOrphanCoreumTx, nil))
 	}
@@ -141,10 +138,10 @@ func FindAuditTxDiscrepancies(
 		if filterTime.IsZero() {
 			filterTime = discrepancy.CoreumTx.Timestamp
 		}
-		if filterTime.After(afterDateTime) {
+		if filterTime.After(beforeDateTime) {
 			continue
 		}
-		if filterTime.Before(beforeDateTime) {
+		if filterTime.Before(afterDateTime) {
 			continue
 		}
 		filteredDiscrepancies = append(filteredDiscrepancies, discrepancy)
@@ -178,7 +175,7 @@ func decodeXrplTxHashFromCoreumMemo(memo string) string {
 }
 
 // computeAmountWithoutFee computes the correct fee based on the fee config
-// fee = amount * feeRation/1000
+// fee = amount * feeRatio/1000
 // if fee <= minFee, fee = minFee
 // if fee >= maxFee, fee = maxFee
 func computeAmountWithoutFee(amount *big.Int, config FeeConfig) *big.Int {

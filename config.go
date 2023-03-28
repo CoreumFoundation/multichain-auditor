@@ -37,8 +37,8 @@ const (
 
 type Config struct {
 	ChainID              string
-	AfterDateTime        time.Time
 	BeforeDateTime       time.Time
+	AfterDateTime        time.Time
 	Denom                string
 	CoreumAccount        string
 	CoreumRPCURL         string
@@ -82,15 +82,6 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 		return Config{}, err
 	}
 
-	afterDateTimeString, err := cmd.Flags().GetString(afterDateTimeFlag)
-	if err != nil {
-		return Config{}, err
-	}
-	afterDateTime, err := time.Parse(time.DateTime, afterDateTimeString)
-	if err != nil {
-		return Config{}, errors.Errorf("error parsing %s the expected format is %s", afterDateTimeFlag, time.DateTime)
-	}
-
 	beforeDateTimeString, err := cmd.Flags().GetString(beforeDateTimeFlag)
 	if err != nil {
 		return Config{}, err
@@ -98,6 +89,15 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 	beforeDateTime, err := time.Parse(time.DateTime, beforeDateTimeString)
 	if err != nil {
 		return Config{}, errors.Errorf("error parsing %s the expected format is %s", beforeDateTimeFlag, time.DateTime)
+	}
+
+	afterDateTimeString, err := cmd.Flags().GetString(afterDateTimeFlag)
+	if err != nil {
+		return Config{}, err
+	}
+	afterDateTime, err := time.Parse(time.DateTime, afterDateTimeString)
+	if err != nil {
+		return Config{}, errors.Errorf("error parsing %s the expected format is %s", afterDateTimeFlag, time.DateTime)
 	}
 
 	network, err := config.NetworkByChainID(constant.ChainID(chainID))
@@ -259,8 +259,8 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 
 	return Config{
 		ChainID:              chainID,
-		AfterDateTime:        afterDateTime.UTC(),
 		BeforeDateTime:       beforeDateTime.UTC(),
+		AfterDateTime:        afterDateTime.UTC(),
 		Denom:                network.Denom(),
 		CoreumAccount:        coreumAccount,
 		CoreumRPCURL:         coreumRPCAddress,

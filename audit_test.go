@@ -333,9 +333,9 @@ func TestFindAuditTxDiscrepancies(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			afterDateTime := time.Date(2030, time.Month(1), 1, 0, 0, 0, 0, time.UTC)
-			beforeDateTime := time.Date(2020, time.Month(1), 1, 0, 0, 0, 0, time.UTC)
-			got := FindAuditTxDiscrepancies(tt.args.xrplTxs, tt.args.coreumTxs, tt.args.feeConfigs, false, afterDateTime, beforeDateTime)
+			beforeDateTime := time.Date(2030, time.Month(1), 1, 0, 0, 0, 0, time.UTC)
+			afterDateTime := time.Date(2020, time.Month(1), 1, 0, 0, 0, 0, time.UTC)
+			got := FindAuditTxDiscrepancies(tt.args.xrplTxs, tt.args.coreumTxs, tt.args.feeConfigs, false, beforeDateTime, afterDateTime)
 			require.Equal(t, tt.want, got)
 		})
 	}
