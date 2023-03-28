@@ -177,7 +177,7 @@ func getXRPLPaymentTransactions(
 			return nil, err
 		}
 
-		log.Info("Fetching ...", zap.String("Page", fmt.Sprintf("%d", page)))
+		log.Info("Fetching", zap.String("Page", fmt.Sprintf("%d", page)))
 		page++
 		wg.Add(len(txHashes))
 		for _, txHash := range txHashes {

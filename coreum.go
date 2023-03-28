@@ -3,20 +3,27 @@ package main
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/gammazero/workerpool"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/logger"
 	"github.com/CoreumFoundation/coreum/pkg/config"
 	"github.com/CoreumFoundation/coreum/x/wbank"
+)
+
+const (
+	coreumTxFetcherPoolSize = 100
 )
 
 type bankSendWithMemo struct {
@@ -80,63 +87,83 @@ func getTxsWithSingleBankSend(
 	log.Info(fmt.Sprintf("Fetching coreum txs from: %s, to: %s ...", beforeDateTime.Format(time.DateTime), afterDateTime.Format(time.DateTime)))
 
 	tmEvents := []string{event}
-	page := 0
+
 	limit := 100 // 100 is the max limit
 	var bankSendMessages []bankSendWithMemo
-	getMore := true
-	for getMore {
-		page++
-		res, err := authtx.QueryTxsByEvents(clientCtx, tmEvents, page, limit, "")
-		if err != nil {
-			return nil, err
-		}
-		if page == 1 {
-			log.Info("Fetching coreum txs ...",
-				zap.Uint64("Total Items", res.TotalCount),
-				zap.Int("PerPage Items", limit),
-				zap.Uint64("Total Page", res.PageTotal),
-			)
-		}
 
-		log.Info("Fetching ...", zap.String("Page", fmt.Sprintf("%d/%d", page, res.PageTotal)))
-		if page == int(res.PageTotal) || res.PageTotal == 0 {
-			getMore = false
-		}
-		for _, txAny := range res.Txs {
-			tx, ok := txAny.Tx.GetCachedValue().(*sdktx.Tx)
-			if !ok {
-				return nil, errors.New("tx does not implement sdk.Tx interface")
-			}
+	// allocate limited pool to fetch tx in parallel
+	workerPool := workerpool.New(coreumTxFetcherPoolSize)
+	defer workerPool.Stop()
 
-			messages := tx.GetMsgs()
-			if len(messages) != 1 {
-				return nil, errors.New("there should be only 1 message in the transaction")
-			}
+	page := uint64(1)
+	res, err := authtx.QueryTxsByEvents(clientCtx, tmEvents, int(page), limit, "")
+	if err != nil {
+		return nil, err
+	}
+	log.Info("Fetching", zap.String("Page", fmt.Sprintf("%d/%d", page, res.PageTotal)))
+	page++
 
-			msg := messages[0]
-			bankSend, ok := msg.(*banktypes.MsgSend)
-			if !ok {
-				return nil, errors.New("message is not bank MsgSend type")
-			}
-			timestamp, err := time.Parse(time.RFC3339, txAny.Timestamp)
-			if timestamp.After(beforeDateTime) {
-				continue
-			}
-			if timestamp.Before(afterDateTime) {
-				getMore = false
-				break
-			}
+	txs := make([]*sdk.TxResponse, 0)
+	txs = append(txs, res.Txs...)
 
+	mu := sync.Mutex{}
+	wg := sync.WaitGroup{}
+	var fetchError error
+	wg.Add(int(res.PageTotal) - 1) // we already fetched first
+	for ; page <= res.PageTotal; page++ {
+		pageToFetch := page
+		workerPool.Submit(func() {
+			defer wg.Done()
+			log.Info("Fetching", zap.String("Page", fmt.Sprintf("%d/%d", pageToFetch, res.PageTotal)))
+			res, err = authtx.QueryTxsByEvents(clientCtx, tmEvents, int(pageToFetch), limit, "")
 			if err != nil {
-				return nil, errors.Errorf("can't parse time: %s with format %s", txAny.Timestamp, time.RFC3339)
+				fetchError = err
+				log.Error("Can't fetch page", zap.String("Page", fmt.Sprintf("%d/%d", pageToFetch, res.PageTotal)), zap.Error(err))
+				return
 			}
-			bankSendMessages = append(bankSendMessages, bankSendWithMemo{
-				Hash:      txAny.TxHash,
-				MsgSend:   bankSend,
-				Memo:      tx.Body.Memo,
-				Timestamp: timestamp,
-			})
+			mu.Lock()
+			defer mu.Unlock()
+			txs = append(txs, res.Txs...)
+		})
+	}
+	wg.Wait()
+	if fetchError != nil {
+		return nil, fetchError
+	}
+
+	for _, txAny := range txs {
+		tx, ok := txAny.Tx.GetCachedValue().(*sdktx.Tx)
+		if !ok {
+			return nil, errors.New("tx does not implement sdk.Tx interface")
 		}
+
+		messages := tx.GetMsgs()
+		if len(messages) != 1 {
+			return nil, errors.New("there should be only 1 message in the transaction")
+		}
+
+		msg := messages[0]
+		bankSend, ok := msg.(*banktypes.MsgSend)
+		if !ok {
+			return nil, errors.New("message is not bank MsgSend type")
+		}
+		timestamp, err := time.Parse(time.RFC3339, txAny.Timestamp)
+		if timestamp.After(beforeDateTime) {
+			continue
+		}
+		if timestamp.Before(afterDateTime) {
+			break
+		}
+
+		if err != nil {
+			return nil, errors.Errorf("can't parse time: %s with format %s", txAny.Timestamp, time.RFC3339)
+		}
+		bankSendMessages = append(bankSendMessages, bankSendWithMemo{
+			Hash:      txAny.TxHash,
+			MsgSend:   bankSend,
+			Memo:      tx.Body.Memo,
+			Timestamp: timestamp,
+		})
 	}
 
 	log.Info(fmt.Sprintf("Found coreum txs total: %d", len(bankSendMessages)))
