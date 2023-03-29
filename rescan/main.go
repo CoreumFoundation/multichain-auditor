@@ -89,6 +89,7 @@ func main() {
 	}
 
 	for _, txid := range txids {
+		// expected response: {"msg":"Success","info":"Already registered!"}
 		url := fmt.Sprintf("https://scanapi.multichain.org/v2/reswaptxns?hash=%s&srcChainID=XRP&destChainID=ATOM_DCORE", txid)
 		resp, err := cl.Get(url)
 		if err != nil {
