@@ -19,6 +19,7 @@ import (
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/logger"
 	"github.com/CoreumFoundation/coreum/pkg/config"
+	"github.com/CoreumFoundation/coreum/pkg/config/constant"
 	"github.com/CoreumFoundation/coreum/x/wbank"
 )
 
@@ -63,7 +64,7 @@ func createClientContext(cfg Config) client.Context {
 
 	encodingConfig := config.NewEncodingConfig(modules)
 	clientCtx := client.Context{}.
-		WithChainID(cfg.ChainID).
+		WithChainID(string(constant.ChainIDMain)).
 		WithClient(rpcClient).
 		WithCodec(encodingConfig.Codec).
 		WithInterfaceRegistry(encodingConfig.InterfaceRegistry).
