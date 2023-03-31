@@ -14,43 +14,22 @@ import (
 	"github.com/CoreumFoundation/faucet/pkg/logger"
 )
 
-const (
-	defaultCoreumTestnetRPC     = "https://full-node.testnet-1.coreum.dev:26657"
-	defaultCoreumMainnetRPC     = "https://full-node.mainnet-1.coreum.dev:26657"
-	defaultCoreumAccountTestnet = "testcore1pykqce6sh6szm8mkzmsjweyucshahe5gjeykxr"
-	defaultCoreumAccountMainnet = "core1ssh2d2ft6hzrgn9z6k7mmsamy2hfpxl9y8re5x"
-
-	// we don't support it for now, the config is set for the future integration
-	defaultXrplTestnetRPCAPIURL        = "https://s.altnet.rippletest.net:51234/"
-	defaultXrplTestnetAccount          = "raSEP47QAwU6jsZU493znUD2iGNHDQEyvA"
-	defaultXrplTestnetCurrency         = "F524500000000000000000000000000000000"
-	defaultXrplTestnetIssuer           = "raSEP47QAwU6jsZU493znUD2iGNHDQEyvA"
-	defaultXrplTestnetBridgeChainIndex = "1007961752910"
-
-	defaultXrplMainnetRPCAPIURL        = "https://xrplcluster.com/"
-	defaultXrplMainnetHistoricalAPIURL = "https://data.ripple.com"
-	defaultXrplMainnetAccount          = "rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D"
-	defaultXrplMainnetCurrency         = "434F524500000000000000000000000000000000"
-	defaultXrplMainnetIssuer           = "rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D"
-	defaultMainnetBridgeChainIndex     = "1007961752909"
-)
-
 type Config struct {
-	ChainID              string
-	BeforeDateTime       time.Time
-	AfterDateTime        time.Time
-	Denom                string
-	CoreumAccount        string
-	CoreumRPCURL         string
-	XrplRPCAPIURL        string
-	XrplHistoricalAPIURL string
-	XrplAccount          string
-	XrplCurrency         string
-	XrplIssuer           string
-	BridgeChainIndex     string
-	OutputDocument       string
-	FeeConfigs           []FeeConfig
-	IncludeAll           bool
+	BeforeDateTime         time.Time
+	AfterDateTime          time.Time
+	Denom                  string
+	CoreumAccount          string
+	CoreumRPCURL           string
+	XrplRPCAPIURL          string
+	XrplHistoricalAPIURL   string
+	XrplAccount            string
+	XrplCurrency           string
+	XrplIssuer             string
+	BridgeChainIndex       string
+	OutputDocument         string
+	FeeConfigs             []FeeConfig
+	IncludeAll             bool
+	MultichainRescanAPIURL string
 }
 
 // FeeConfig the settings used for the calculation of the final amount which includes fee.
@@ -68,20 +47,15 @@ func Setup(cmd *cobra.Command) (Config, context.Context, *zap.Logger, error) {
 	log := logger.New(loggerConfig)
 	ctx := logger.WithLogger(context.Background(), log)
 
-	config, err := getConfig(cmd)
+	сfg, err := getConfig(cmd)
 	if err != nil {
 		return Config{}, nil, nil, err
 	}
 
-	return config, ctx, log, nil
+	return сfg, ctx, log, nil
 }
 
 func getConfig(cmd *cobra.Command) (Config, error) {
-	chainID, err := cmd.Flags().GetString(chainIDFlag)
-	if err != nil {
-		return Config{}, err
-	}
-
 	beforeDateTimeString, err := cmd.Flags().GetString(beforeDateTimeFlag)
 	if err != nil {
 		return Config{}, err
@@ -100,7 +74,7 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 		return Config{}, errors.Errorf("error parsing %s the expected format is %s", afterDateTimeFlag, time.DateTime)
 	}
 
-	network, err := config.NetworkByChainID(constant.ChainID(chainID))
+	network, err := config.NetworkByChainID(constant.ChainIDMain)
 	if err != nil {
 		return Config{}, err
 	}
@@ -112,27 +86,9 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 		return Config{}, err
 	}
 
-	if coreumRPCAddress == "" {
-		switch constant.ChainID(chainID) {
-		case constant.ChainIDTest:
-			coreumRPCAddress = defaultCoreumTestnetRPC
-		case constant.ChainIDMain:
-			coreumRPCAddress = defaultCoreumMainnetRPC
-		}
-	}
-
 	coreumAccount, err := cmd.Flags().GetString(coreumAccountFlag)
 	if err != nil {
 		return Config{}, err
-	}
-
-	if coreumAccount == "" {
-		switch constant.ChainID(chainID) {
-		case constant.ChainIDTest:
-			coreumAccount = defaultCoreumAccountTestnet
-		case constant.ChainIDMain:
-			coreumAccount = defaultCoreumAccountMainnet
-		}
 	}
 
 	xrplRPCAPIURL, err := cmd.Flags().GetString(xrplRPCAPIURLFlag)
@@ -140,88 +96,50 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 		return Config{}, err
 	}
 
-	if xrplRPCAPIURL == "" {
-		switch constant.ChainID(chainID) {
-		case constant.ChainIDTest:
-			xrplRPCAPIURL = defaultXrplTestnetRPCAPIURL
-		case constant.ChainIDMain:
-			xrplRPCAPIURL = defaultXrplMainnetRPCAPIURL
-		}
-	}
-
 	xrplHistoricalAPIURL, err := cmd.Flags().GetString(xrplHistoricalAPIURLFlag)
 	if err != nil {
 		return Config{}, err
-	}
-	if xrplHistoricalAPIURL == "" {
-		switch constant.ChainID(chainID) {
-		case constant.ChainIDTest:
-			return Config{}, errors.New("testnet isn't temporarily support because of lath of historical API")
-		case constant.ChainIDMain:
-			xrplHistoricalAPIURL = defaultXrplMainnetHistoricalAPIURL
-		}
 	}
 
 	xrplAccount, err := cmd.Flags().GetString(xrplAccountFlag)
 	if err != nil {
 		return Config{}, err
 	}
-	if xrplAccount == "" {
-		switch constant.ChainID(chainID) {
-		case constant.ChainIDTest:
-			xrplAccount = defaultXrplTestnetAccount
-		case constant.ChainIDMain:
-			xrplAccount = defaultXrplMainnetAccount
-		}
-	}
 
 	xrplCurrency, err := cmd.Flags().GetString(xrplCurrencyFlag)
 	if err != nil {
 		return Config{}, err
-	}
-	if xrplCurrency == "" {
-		switch constant.ChainID(chainID) {
-		case constant.ChainIDTest:
-			xrplCurrency = defaultXrplTestnetCurrency
-		case constant.ChainIDMain:
-			xrplCurrency = defaultXrplMainnetCurrency
-		}
 	}
 
 	xrplIssuer, err := cmd.Flags().GetString(xrplIssuerFlag)
 	if err != nil {
 		return Config{}, err
 	}
-	if xrplIssuer == "" {
-		switch constant.ChainID(chainID) {
-		case constant.ChainIDTest:
-			xrplIssuer = defaultXrplTestnetIssuer
-		case constant.ChainIDMain:
-			xrplIssuer = defaultXrplMainnetIssuer
-		}
-	}
 
 	bridgeChainIndex, err := cmd.Flags().GetString(bridgeChainIndexFlag)
 	if err != nil {
 		return Config{}, err
 	}
-	if bridgeChainIndex == "" {
-		switch constant.ChainID(chainID) {
-		case constant.ChainIDTest:
-			bridgeChainIndex = defaultXrplTestnetBridgeChainIndex
-		case constant.ChainIDMain:
-			bridgeChainIndex = defaultMainnetBridgeChainIndex
-		}
-	}
 
-	outputDocument, err := cmd.Flags().GetString(outputDocumentFlag)
-	if err != nil {
-		return Config{}, err
+	outputDocument := ""
+	if cmd.Flags().Lookup(outputDocumentFlag) != nil {
+		outputDocument, err = cmd.Flags().GetString(outputDocumentFlag)
+		if err != nil {
+			return Config{}, err
+		}
 	}
 
 	includeAll := false
 	if cmd.Flags().Lookup(includeAllFlag) != nil {
 		includeAll, err = cmd.Flags().GetBool(includeAllFlag)
+		if err != nil {
+			return Config{}, err
+		}
+	}
+
+	multichainRescanAPIURL := ""
+	if cmd.Flags().Lookup(multichainRescanAPIURLFlag) != nil {
+		multichainRescanAPIURL, err = cmd.Flags().GetString(multichainRescanAPIURLFlag)
 		if err != nil {
 			return Config{}, err
 		}
@@ -258,20 +176,20 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 	}
 
 	return Config{
-		ChainID:              chainID,
-		BeforeDateTime:       beforeDateTime.UTC(),
-		AfterDateTime:        afterDateTime.UTC(),
-		Denom:                network.Denom(),
-		CoreumAccount:        coreumAccount,
-		CoreumRPCURL:         coreumRPCAddress,
-		XrplRPCAPIURL:        xrplRPCAPIURL,
-		XrplHistoricalAPIURL: xrplHistoricalAPIURL,
-		XrplAccount:          xrplAccount,
-		XrplCurrency:         xrplCurrency,
-		XrplIssuer:           xrplIssuer,
-		BridgeChainIndex:     bridgeChainIndex,
-		OutputDocument:       outputDocument,
-		FeeConfigs:           feeConfigs,
-		IncludeAll:           includeAll,
+		BeforeDateTime:         beforeDateTime.UTC(),
+		AfterDateTime:          afterDateTime.UTC(),
+		Denom:                  network.Denom(),
+		CoreumAccount:          coreumAccount,
+		CoreumRPCURL:           coreumRPCAddress,
+		XrplRPCAPIURL:          xrplRPCAPIURL,
+		XrplHistoricalAPIURL:   xrplHistoricalAPIURL,
+		XrplAccount:            xrplAccount,
+		XrplCurrency:           xrplCurrency,
+		XrplIssuer:             xrplIssuer,
+		BridgeChainIndex:       bridgeChainIndex,
+		OutputDocument:         outputDocument,
+		FeeConfigs:             feeConfigs,
+		IncludeAll:             includeAll,
+		MultichainRescanAPIURL: multichainRescanAPIURL,
 	}, nil
 }

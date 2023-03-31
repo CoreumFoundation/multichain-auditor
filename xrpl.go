@@ -22,7 +22,7 @@ var (
 	xrplRequestTimeout          = 10 * time.Second
 	xrplTxFetcherPoolSize       = 100
 	xrplHistoricalDataPageLimit = 1000 // this limit is maximum for the historical API
-	xrplreceivedTxType          = "received"
+	xrplReceivedTxType          = "received"
 	oneMillionFloat             = big.NewFloat(1_000_000)
 )
 
@@ -218,7 +218,7 @@ func getXRPLHistoricalPaymentTransactionHashes(
 	baseURL, account, currency, issuer, marker string, beforeDateTime, afterDateTime time.Time,
 ) ([]string, string, error) {
 	url := fmt.Sprintf("%s/v2/accounts/%s/payments/?type=%s&currency=%s&issuer=%s&marker=%s&limit=%d&end=%s&start=%s",
-		baseURL, account, xrplreceivedTxType, currency, issuer, marker, xrplHistoricalDataPageLimit, beforeDateTime.Format(time.RFC3339), afterDateTime.Format(time.RFC3339))
+		baseURL, account, xrplReceivedTxType, currency, issuer, marker, xrplHistoricalDataPageLimit, beforeDateTime.Format(time.RFC3339), afterDateTime.Format(time.RFC3339))
 	reqCtx, reqCtxCancel := context.WithTimeout(ctx, xrplRequestTimeout)
 	defer reqCtxCancel()
 	var resBody xrplAccountTransactionsResp

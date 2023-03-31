@@ -1,27 +1,43 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/CoreumFoundation/coreum-tools/pkg/logger"
 )
 
 // flags defined for cmd.
 const (
-	chainIDFlag              = "chain-id"
-	beforeDateTimeFlag       = "before-date-time"
-	afterDateTimeFlag        = "after-date-time"
-	coreumNodeFlag           = "coreum-node"
-	coreumAccountFlag        = "coreum-account"
-	xrplRPCAPIURLFlag        = "xrpl-rpc-api-url"
-	xrplHistoricalAPIURLFlag = "xrpl-historical-api-url"
-	xrplAccountFlag          = "xrpl-account"
-	xrplCurrencyFlag         = "xrpl-currency"
-	xrplIssuerFlag           = "xrpl-issuer"
-	bridgeChainIndexFlag     = "bridge-chain-index"
-	outputDocumentFlag       = "output-document"
-	includeAllFlag           = "include-all"
+	beforeDateTimeFlag         = "before-date-time"
+	afterDateTimeFlag          = "after-date-time"
+	coreumNodeFlag             = "coreum-node"
+	coreumAccountFlag          = "coreum-account"
+	xrplRPCAPIURLFlag          = "xrpl-rpc-api-url"
+	xrplHistoricalAPIURLFlag   = "xrpl-historical-api-url"
+	xrplAccountFlag            = "xrpl-account"
+	xrplCurrencyFlag           = "xrpl-currency"
+	xrplIssuerFlag             = "xrpl-issuer"
+	bridgeChainIndexFlag       = "bridge-chain-index"
+	outputDocumentFlag         = "output-document"
+	includeAllFlag             = "include-all"
+	multichainRescanAPIURLFlag = "multichain-rescan-api-url"
+)
+
+const (
+	defaultCoreumRPC     = "https://full-node.mainnet-1.coreum.dev:26657"
+	defaultCoreumAccount = "core1ssh2d2ft6hzrgn9z6k7mmsamy2hfpxl9y8re5x"
+
+	defaultXrplRPCAPIURL          = "https://xrplcluster.com"
+	defaultXrplHistoricalAPIURL   = "https://data.ripple.com"
+	defaultXrplAccount            = "rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D"
+	defaultXrplCurrency           = "434F524500000000000000000000000000000000"
+	defaultXrplIssuer             = "rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D"
+	defaultBridgeChainIndex       = "1007961752909"
+	defaultMultichainRescanAPIURL = "https://scanapi.multichain.org"
 )
 
 var (
@@ -38,17 +54,16 @@ func rootCmd() *cobra.Command {
 	cmd.AddCommand(xrplCmd())
 	cmd.AddCommand(discrepancyCmd())
 
-	cmd.PersistentFlags().String(chainIDFlag, "coreum-mainnet-1", "chain id (coreum-mainnet-1,coreum-testnet-1)")
-	cmd.PersistentFlags().String(coreumNodeFlag, "", "coreum rpc address")
-	cmd.PersistentFlags().String(coreumAccountFlag, "", "multichain account on coreum")
+	cmd.PersistentFlags().String(coreumNodeFlag, defaultCoreumRPC, "coreum rpc address")
+	cmd.PersistentFlags().String(coreumAccountFlag, defaultCoreumAccount, "multichain account on coreum")
 	cmd.PersistentFlags().String(beforeDateTimeFlag, defaultAfterTime.Format(time.DateTime), fmt.Sprintf("UTC date and time to fetch from, format: %s", time.DateTime))
 	cmd.PersistentFlags().String(afterDateTimeFlag, defaultAfterDateTime.Format(time.DateTime), fmt.Sprintf("UTC date and time to fetch to, format: %s", time.DateTime))
-	cmd.PersistentFlags().String(xrplRPCAPIURLFlag, "", "xrpl RPC address")
-	cmd.PersistentFlags().String(xrplHistoricalAPIURLFlag, "", "xrpl historical API address")
-	cmd.PersistentFlags().String(xrplAccountFlag, "", "xrpl account")
-	cmd.PersistentFlags().String(xrplCurrencyFlag, "", "xrpl hex currency")
-	cmd.PersistentFlags().String(xrplIssuerFlag, "", "xrpl issuer")
-	cmd.PersistentFlags().String(bridgeChainIndexFlag, "", "xrpl chain index")
+	cmd.PersistentFlags().String(xrplRPCAPIURLFlag, defaultXrplRPCAPIURL, "xrpl RPC address")
+	cmd.PersistentFlags().String(xrplHistoricalAPIURLFlag, defaultXrplHistoricalAPIURL, "xrpl historical API address")
+	cmd.PersistentFlags().String(xrplAccountFlag, defaultXrplAccount, "xrpl account")
+	cmd.PersistentFlags().String(xrplCurrencyFlag, defaultXrplCurrency, "xrpl hex currency")
+	cmd.PersistentFlags().String(xrplIssuerFlag, defaultXrplIssuer, "xrpl issuer")
+	cmd.PersistentFlags().String(bridgeChainIndexFlag, defaultBridgeChainIndex, "xrpl chain index")
 
 	return cmd
 }
@@ -203,13 +218,14 @@ func discrepancyCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		discrepancyAllCmd(),
+		discrepancyExportCmd(),
+		discrepancyRescanCmd(),
 	)
 
 	return cmd
 }
 
-func discrepancyAllCmd() *cobra.Command {
+func discrepancyExportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "export",
 		Short: "Write all transactions xrpl and coreum discrepancies to csv file",
@@ -218,46 +234,12 @@ func discrepancyAllCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-
-			log.Info(fmt.Sprintf("Fetching incoming transactions for %s xrpl account", config.XrplAccount))
-			xrplAuditTxs, err := GetXRPLAuditTransactions(
-				ctx,
-				config.XrplRPCAPIURL,
-				config.XrplHistoricalAPIURL,
-				config.XrplAccount,
-				config.XrplCurrency,
-				config.XrplIssuer,
-				config.BridgeChainIndex,
-				defaultAfterTime, // for the discrepancies we export full history and filter later
-				defaultAfterDateTime,
-			)
+			log.Info("Exporting discrepancies.")
+			discrepancies, err := findTxDiscrepancies(ctx, config)
 			if err != nil {
 				return err
 			}
 
-			clientCtx := createClientContext(config)
-			log.Info("Fetching outgoing transactions from multichain coreum wallet")
-			coreumAuditTxs, err := GetCoreumAuditTransactions(
-				ctx,
-				clientCtx,
-				fmt.Sprintf("coin_spent.spender='%s'", config.CoreumAccount),
-				config.Denom,
-				defaultAfterTime, // for the discrepancies we export full history and filter later
-				defaultAfterDateTime,
-			)
-			if err != nil {
-				return err
-			}
-
-			discrepancies := FindAuditTxDiscrepancies(
-				xrplAuditTxs,
-				coreumAuditTxs,
-				config.FeeConfigs,
-				config.IncludeAll,
-				config.BeforeDateTime,
-				config.AfterDateTime,
-			)
-			log.Info(fmt.Sprintf("Found %d discrepancies", len(discrepancies)))
 			err = WriteTxsDiscrepancyToCSV(discrepancies, config.OutputDocument)
 			if err != nil {
 				return err
@@ -271,4 +253,81 @@ func discrepancyAllCmd() *cobra.Command {
 	cmd.PersistentFlags().Bool(includeAllFlag, false, "add all tx to output file even if no discrepancies are found")
 
 	return cmd
+}
+
+func discrepancyRescanCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rescan",
+		Short: "Rescans all transactions orphan xrpl txs",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			config, ctx, log, err := Setup(cmd)
+			if err != nil {
+				return err
+			}
+
+			log.Info("Rescanning orphan discrepancies.")
+			discrepancies, err := findTxDiscrepancies(ctx, config)
+			if err != nil {
+				return err
+			}
+
+			txHashes := make([]string, 0)
+			for _, discrepancy := range discrepancies {
+				if discrepancy.Discrepancy == DiscrepancyOrphanXrplTx {
+					txHashes = append(txHashes, discrepancy.XrplTx.Hash)
+				}
+			}
+
+			return RescanMultichainTxs(ctx, config.MultichainRescanAPIURL, txHashes)
+		},
+	}
+
+	cmd.PersistentFlags().String(multichainRescanAPIURLFlag, defaultMultichainRescanAPIURL, "multichain rescan API url")
+
+	return cmd
+}
+
+func findTxDiscrepancies(ctx context.Context, config Config) ([]TxDiscrepancy, error) {
+	log := logger.Get(ctx)
+	log.Info(fmt.Sprintf("Fetching incoming transactions for %s xrpl account", config.XrplAccount))
+	xrplAuditTxs, err := GetXRPLAuditTransactions(
+		ctx,
+		config.XrplRPCAPIURL,
+		config.XrplHistoricalAPIURL,
+		config.XrplAccount,
+		config.XrplCurrency,
+		config.XrplIssuer,
+		config.BridgeChainIndex,
+		defaultAfterTime, // for the discrepancies we export full history and filter later
+		defaultAfterDateTime,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	clientCtx := createClientContext(config)
+	log.Info("Fetching outgoing transactions from multichain coreum wallet")
+	coreumAuditTxs, err := GetCoreumAuditTransactions(
+		ctx,
+		clientCtx,
+		fmt.Sprintf("coin_spent.spender='%s'", config.CoreumAccount),
+		config.Denom,
+		defaultAfterTime, // for the discrepancies we export full history and filter later
+		defaultAfterDateTime,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	discrepancies := FindAuditTxDiscrepancies(
+		xrplAuditTxs,
+		coreumAuditTxs,
+		config.FeeConfigs,
+		config.IncludeAll,
+		config.BeforeDateTime,
+		config.AfterDateTime,
+	)
+	log.Info(fmt.Sprintf("Found %d discrepancies", len(discrepancies)))
+
+	return discrepancies, nil
 }
