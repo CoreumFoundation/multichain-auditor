@@ -52,3 +52,17 @@ go build -o multichain-auditor
 ```bash
 ./multichain-auditor discrepancy export --before-date-time="2023-03-23 00:00:00" --after-date-time="2023-01-01 00:00:00"
 ```
+
+### Rescan orphan tx discrepancies with multichain
+
+```bash
+./multichain-auditor discrepancy rescan
+```
+
+### Print summary print
+
+```bash
+./multichain-auditor summary print
+```
+
+

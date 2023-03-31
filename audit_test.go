@@ -10,6 +10,7 @@ import (
 
 func TestFindAuditTxDiscrepancies(t *testing.T) {
 	const bridgeChainIndex = "1111"
+
 	onePercentFeeConfigWithMinAndMaxLimits := FeeConfig{
 		StartTime: time.Date(2022, time.Month(6), 1, 0, 0, 0, 0, time.UTC),
 		FeeRatio:  big.NewInt(0),

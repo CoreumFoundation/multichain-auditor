@@ -15,21 +15,23 @@ import (
 )
 
 type Config struct {
-	BeforeDateTime         time.Time
-	AfterDateTime          time.Time
-	Denom                  string
-	CoreumAccount          string
-	CoreumRPCURL           string
-	XrplRPCAPIURL          string
-	XrplHistoricalAPIURL   string
-	XrplAccount            string
-	XrplCurrency           string
-	XrplIssuer             string
-	BridgeChainIndex       string
-	OutputDocument         string
-	FeeConfigs             []FeeConfig
-	IncludeAll             bool
-	MultichainRescanAPIURL string
+	BeforeDateTime          time.Time
+	AfterDateTime           time.Time
+	Denom                   string
+	CoreumAccount           string
+	CoreumFoundationAccount string
+	CoreumRPCURL            string
+	XrplRPCAPIURL           string
+	XrplScanAPIURL          string
+	XrplHistoricalAPIURL    string
+	XrplAccount             string
+	XrplCurrency            string
+	XrplIssuer              string
+	BridgeChainIndex        string
+	OutputDocument          string
+	FeeConfigs              []FeeConfig
+	IncludeAll              bool
+	MultichainRescanAPIURL  string
 }
 
 // FeeConfig the settings used for the calculation of the final amount which includes fee.
@@ -91,12 +93,22 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 		return Config{}, err
 	}
 
+	coreumFoundationAccount, err := cmd.Flags().GetString(coreumFoundationAccountFlag)
+	if err != nil {
+		return Config{}, err
+	}
+
 	xrplRPCAPIURL, err := cmd.Flags().GetString(xrplRPCAPIURLFlag)
 	if err != nil {
 		return Config{}, err
 	}
 
 	xrplHistoricalAPIURL, err := cmd.Flags().GetString(xrplHistoricalAPIURLFlag)
+	if err != nil {
+		return Config{}, err
+	}
+
+	xrplScanAPIURL, err := cmd.Flags().GetString(xrplScanAPIURLFlag)
 	if err != nil {
 		return Config{}, err
 	}
@@ -176,20 +188,22 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 	}
 
 	return Config{
-		BeforeDateTime:         beforeDateTime.UTC(),
-		AfterDateTime:          afterDateTime.UTC(),
-		Denom:                  network.Denom(),
-		CoreumAccount:          coreumAccount,
-		CoreumRPCURL:           coreumRPCAddress,
-		XrplRPCAPIURL:          xrplRPCAPIURL,
-		XrplHistoricalAPIURL:   xrplHistoricalAPIURL,
-		XrplAccount:            xrplAccount,
-		XrplCurrency:           xrplCurrency,
-		XrplIssuer:             xrplIssuer,
-		BridgeChainIndex:       bridgeChainIndex,
-		OutputDocument:         outputDocument,
-		FeeConfigs:             feeConfigs,
-		IncludeAll:             includeAll,
-		MultichainRescanAPIURL: multichainRescanAPIURL,
+		BeforeDateTime:          beforeDateTime.UTC(),
+		AfterDateTime:           afterDateTime.UTC(),
+		Denom:                   network.Denom(),
+		CoreumAccount:           coreumAccount,
+		CoreumFoundationAccount: coreumFoundationAccount,
+		CoreumRPCURL:            coreumRPCAddress,
+		XrplRPCAPIURL:           xrplRPCAPIURL,
+		XrplScanAPIURL:          xrplScanAPIURL,
+		XrplHistoricalAPIURL:    xrplHistoricalAPIURL,
+		XrplAccount:             xrplAccount,
+		XrplCurrency:            xrplCurrency,
+		XrplIssuer:              xrplIssuer,
+		BridgeChainIndex:        bridgeChainIndex,
+		OutputDocument:          outputDocument,
+		FeeConfigs:              feeConfigs,
+		IncludeAll:              includeAll,
+		MultichainRescanAPIURL:  multichainRescanAPIURL,
 	}, nil
 }
