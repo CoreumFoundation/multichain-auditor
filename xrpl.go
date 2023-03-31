@@ -24,6 +24,9 @@ var (
 	xrplHistoricalDataPageLimit = 1000 // this limit is maximum for the historical API
 	xrplReceivedTxType          = "received"
 	oneMillionFloat             = big.NewFloat(1_000_000)
+	xrplResStatusSuccess        = "success"
+	xrplGetTxRetries            = 10
+	xrplGetTxRetryTimout        = 500 * time.Millisecond
 )
 
 // Historical models
@@ -80,6 +83,11 @@ type xrplTransactionResp struct {
 	Result xrplTransaction `json:"result"`
 }
 
+type xrplCurrencySupply struct {
+	Currency string     `json:"currency"`
+	Value    *big.Float `json:"value,string"`
+}
+
 // GetXRPLAuditTransactions returns the list of the valid xrpl bridge transaction converted to the audit model.
 func GetXRPLAuditTransactions(
 	ctx context.Context,
@@ -95,6 +103,26 @@ func GetXRPLAuditTransactions(
 	logger.Get(ctx).Info(fmt.Sprintf("Found xrpl txs total after bridge related filtration: %d", len(filteredTxs)))
 
 	return filteredTxs, nil
+}
+
+// GetXrplCurrencySupply returns the supply of the currency on xrpl.
+func GetXrplCurrencySupply(ctx context.Context, baseURL, issuer, currency string) (*big.Int, error) {
+	url := fmt.Sprintf("%s/api/v1/account/%s/obligations", baseURL, issuer)
+	reqCtx, reqCtxCancel := context.WithTimeout(ctx, xrplRequestTimeout)
+	defer reqCtxCancel()
+	var resBody []xrplCurrencySupply
+	err := DoJSON(reqCtx, http.MethodGet, url, nil, &resBody)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, issuerCurrency := range resBody {
+		if issuerCurrency.Currency == currency {
+			return convertFloatToSixDecimalsInt(issuerCurrency.Value), nil
+		}
+	}
+
+	return nil, errors.Errorf("currency %s not found for %s", currency, issuer)
 }
 
 // filterXRPLBridgeTransactionsAndConvertToTxAudit filters the list of the xrpl transactions to leave the bridge only
@@ -149,7 +177,7 @@ func getXRPLPaymentTransactions(
 	beforeDateTime, afterDateTime time.Time,
 ) ([]xrplTransaction, error) {
 	log := logger.Get(ctx)
-	log.Info(fmt.Sprintf("Fetching xrpl txs from: %s, to: %s ...", beforeDateTime.Format(time.DateTime), afterDateTime.Format(time.DateTime)))
+	log.Info(fmt.Sprintf("Fetching xrpl txs before: %s, after: %s ...", beforeDateTime.Format(time.DateTime), afterDateTime.Format(time.DateTime)))
 
 	wg := sync.WaitGroup{}
 	mu := sync.Mutex{}
@@ -159,9 +187,6 @@ func getXRPLPaymentTransactions(
 	workerPool := workerpool.New(xrplTxFetcherPoolSize)
 	defer workerPool.Stop()
 
-	fetchingCtx, fetchingCtxCancel := context.WithCancel(ctx)
-	defer fetchingCtxCancel()
-
 	marker := "" // empty marker indicates that we fetch from latest
 	page := 1
 	for {
@@ -169,15 +194,14 @@ func getXRPLPaymentTransactions(
 			txHashes []string
 			err      error
 		)
-		txHashes, marker, err = getXRPLHistoricalPaymentTransactionHashes(
-			fetchingCtx, historicalAPIURL, account, currency, issuer, marker, beforeDateTime, afterDateTime,
-		)
-		if err != nil {
-			fetchingCtxCancel()
-			return nil, err
-		}
 
 		log.Info("Fetching", zap.String("Page", fmt.Sprintf("%d", page)))
+		txHashes, marker, err = getXRPLHistoricalPaymentTxHashes(
+			ctx, historicalAPIURL, account, currency, issuer, marker, beforeDateTime, afterDateTime,
+		)
+		if err != nil {
+			return nil, err
+		}
 		page++
 		wg.Add(len(txHashes))
 		for _, txHash := range txHashes {
@@ -186,9 +210,8 @@ func getXRPLPaymentTransactions(
 				func() {
 					defer wg.Done()
 					var tx xrplTransaction
-					tx, err = getXRPLTransaction(fetchingCtx, rpcAPIURL, txHashCopy)
+					tx, err = getXRPLTxWithRetry(ctx, rpcAPIURL, txHashCopy)
 					if err != nil {
-						fetchingCtxCancel()
 						return
 					}
 					mu.Lock()
@@ -197,23 +220,22 @@ func getXRPLPaymentTransactions(
 				},
 			)
 		}
+		wg.Wait()
 		if err != nil {
 			return nil, err
 		}
-		// is result marker is empty no pages are left
+		// if marker is empty no pages are left
 		if marker == "" {
 			break
 		}
 	}
-
-	wg.Wait()
 
 	log.Info(fmt.Sprintf("Found xrpl txs total: %d", len(txs)))
 
 	return txs, nil
 }
 
-func getXRPLHistoricalPaymentTransactionHashes(
+func getXRPLHistoricalPaymentTxHashes(
 	ctx context.Context,
 	baseURL, account, currency, issuer, marker string, beforeDateTime, afterDateTime time.Time,
 ) ([]string, string, error) {
@@ -226,7 +248,7 @@ func getXRPLHistoricalPaymentTransactionHashes(
 	if err != nil {
 		return nil, "", err
 	}
-	if resBody.Result != "success" {
+	if resBody.Result != xrplResStatusSuccess {
 		return nil, "", errors.Errorf("receive unexpected result status: %s", resBody.Result)
 	}
 	txs := make([]string, 0, len(resBody.Payments))
@@ -237,7 +259,7 @@ func getXRPLHistoricalPaymentTransactionHashes(
 	return txs, resBody.Marker, nil
 }
 
-func getXRPLTransaction(ctx context.Context, baseURL, txHash string) (xrplTransaction, error) {
+func getXRPLTxWithRetry(ctx context.Context, baseURL, txHash string) (xrplTransaction, error) {
 	reqBody := xrplTransactionRequest{
 		Method: "tx",
 		Params: []xrplTransactionRequestParams{
@@ -248,15 +270,24 @@ func getXRPLTransaction(ctx context.Context, baseURL, txHash string) (xrplTransa
 		},
 	}
 
-	reqCtx, reqCtxCancel := context.WithTimeout(ctx, xrplRequestTimeout)
-	defer reqCtxCancel()
-	var respBody xrplTransactionResp
-	err := DoJSON(reqCtx, http.MethodPost, baseURL, reqBody, &respBody)
-	if err != nil {
-		return xrplTransaction{}, err
+	var (
+		resBody xrplTransactionResp
+		err     error
+	)
+	for i := 0; i < xrplGetTxRetries; i++ {
+		reqCtx, reqCtxCancel := context.WithTimeout(ctx, xrplRequestTimeout)
+		err := DoJSON(reqCtx, http.MethodPost, baseURL, reqBody, &resBody)
+		reqCtxCancel()
+		if err == nil {
+			return resBody.Result, nil
+		}
+		if i != xrplGetTxRetries-1 {
+			<-time.After(xrplGetTxRetryTimout)
+		}
 	}
 
-	return respBody.Result, nil
+	return xrplTransaction{}, errors.Errorf("can't get xrpl tx %s by hash with %d retries and timeout %s, last response: %v, last err: %s",
+		txHash, xrplGetTxRetries, xrplGetTxRetryTimout, resBody, err)
 }
 
 func decodeXRPLBridgeMemo(hexMemo, bridgeChainIndex string) (string, string, bool) {

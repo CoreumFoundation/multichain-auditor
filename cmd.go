@@ -12,27 +12,32 @@ import (
 
 // flags defined for cmd.
 const (
-	beforeDateTimeFlag         = "before-date-time"
-	afterDateTimeFlag          = "after-date-time"
-	coreumNodeFlag             = "coreum-node"
-	coreumAccountFlag          = "coreum-account"
-	xrplRPCAPIURLFlag          = "xrpl-rpc-api-url"
-	xrplHistoricalAPIURLFlag   = "xrpl-historical-api-url"
-	xrplAccountFlag            = "xrpl-account"
-	xrplCurrencyFlag           = "xrpl-currency"
-	xrplIssuerFlag             = "xrpl-issuer"
-	bridgeChainIndexFlag       = "bridge-chain-index"
-	outputDocumentFlag         = "output-document"
-	includeAllFlag             = "include-all"
-	multichainRescanAPIURLFlag = "multichain-rescan-api-url"
+	beforeDateTimeFlag          = "before-date-time"
+	afterDateTimeFlag           = "after-date-time"
+	coreumNodeFlag              = "coreum-node"
+	coreumAccountFlag           = "coreum-account"
+	coreumFoundationAccountFlag = "coreum-foundation-account"
+	xrplRPCAPIURLFlag           = "xrpl-rpc-api-url"
+	xrplHistoricalAPIURLFlag    = "xrpl-historical-api-url"
+	xrplScanAPIURLFlag          = "xrpl-scan-api-url"
+	xrplAccountFlag             = "xrpl-account"
+	xrplCurrencyFlag            = "xrpl-currency"
+	xrplIssuerFlag              = "xrpl-issuer"
+	bridgeChainIndexFlag        = "bridge-chain-index"
+	outputDocumentFlag          = "output-document"
+	includeAllFlag              = "include-all"
+	multichainRescanAPIURLFlag  = "multichain-rescan-api-url"
 )
 
 const (
-	defaultCoreumRPC     = "https://full-node.mainnet-1.coreum.dev:26657"
-	defaultCoreumAccount = "core1ssh2d2ft6hzrgn9z6k7mmsamy2hfpxl9y8re5x"
+	defaultCoreumRPC               = "https://full-node.mainnet-1.coreum.dev:26657"
+	defaultCoreumAccount           = "core1ssh2d2ft6hzrgn9z6k7mmsamy2hfpxl9y8re5x"
+	defaultCoreumFoundationAccount = "core13xmyzhvl02xpz0pu8v9mqalsvpyy7wvs9q5f90"
 
-	defaultXrplRPCAPIURL          = "https://xrplcluster.com"
-	defaultXrplHistoricalAPIURL   = "https://data.ripple.com"
+	defaultXrplRPCAPIURL        = "https://xrplcluster.com"
+	defaultXrplHistoricalAPIURL = "https://data.ripple.com"
+	defaultXrplScanAPIURL       = "https://api.xrpscan.com"
+
 	defaultXrplAccount            = "rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D"
 	defaultXrplCurrency           = "434F524500000000000000000000000000000000"
 	defaultXrplIssuer             = "rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D"
@@ -41,8 +46,8 @@ const (
 )
 
 var (
-	defaultAfterTime     = time.Now().UTC()
-	defaultAfterDateTime = time.Date(2023, time.Month(3), 1, 0, 0, 0, 0, time.UTC)
+	defaultBeforeDateTime = time.Now().UTC()
+	defaultAfterDateTime  = time.Date(2023, time.Month(3), 1, 0, 0, 0, 0, time.UTC)
 )
 
 func rootCmd() *cobra.Command {
@@ -53,13 +58,16 @@ func rootCmd() *cobra.Command {
 	cmd.AddCommand(coreumCmd())
 	cmd.AddCommand(xrplCmd())
 	cmd.AddCommand(discrepancyCmd())
+	cmd.AddCommand(summaryCmd())
 
 	cmd.PersistentFlags().String(coreumNodeFlag, defaultCoreumRPC, "coreum rpc address")
 	cmd.PersistentFlags().String(coreumAccountFlag, defaultCoreumAccount, "multichain account on coreum")
-	cmd.PersistentFlags().String(beforeDateTimeFlag, defaultAfterTime.Format(time.DateTime), fmt.Sprintf("UTC date and time to fetch from, format: %s", time.DateTime))
+	cmd.PersistentFlags().String(coreumFoundationAccountFlag, defaultCoreumFoundationAccount, "foundation account on coreum")
+	cmd.PersistentFlags().String(beforeDateTimeFlag, defaultBeforeDateTime.Format(time.DateTime), fmt.Sprintf("UTC date and time to fetch from, format: %s", time.DateTime))
 	cmd.PersistentFlags().String(afterDateTimeFlag, defaultAfterDateTime.Format(time.DateTime), fmt.Sprintf("UTC date and time to fetch to, format: %s", time.DateTime))
 	cmd.PersistentFlags().String(xrplRPCAPIURLFlag, defaultXrplRPCAPIURL, "xrpl RPC address")
 	cmd.PersistentFlags().String(xrplHistoricalAPIURLFlag, defaultXrplHistoricalAPIURL, "xrpl historical API address")
+	cmd.PersistentFlags().String(xrplScanAPIURLFlag, defaultXrplScanAPIURL, "xrpl scan API address")
 	cmd.PersistentFlags().String(xrplAccountFlag, defaultXrplAccount, "xrpl account")
 	cmd.PersistentFlags().String(xrplCurrencyFlag, defaultXrplCurrency, "xrpl hex currency")
 	cmd.PersistentFlags().String(xrplIssuerFlag, defaultXrplIssuer, "xrpl issuer")
@@ -287,6 +295,77 @@ func discrepancyRescanCmd() *cobra.Command {
 	return cmd
 }
 
+func summaryCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "summary",
+		Short: "Get summary data.",
+	}
+
+	cmd.AddCommand(
+		summaryPrintCmd(),
+	)
+
+	return cmd
+}
+
+func summaryPrintCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "print",
+		Short: "Get and print summary report.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			config, ctx, log, err := Setup(cmd)
+			if err != nil {
+				return err
+			}
+			log.Info("Fetching data for the report.")
+
+			xrplSupply, err := GetXrplCurrencySupply(ctx, config.XrplScanAPIURL, config.XrplIssuer, config.XrplCurrency)
+			if err != nil {
+				return err
+			}
+			clientCtx := createClientContext(config)
+
+			coreumBalance, err := GetCoreumAccountBalance(ctx, clientCtx, config.CoreumAccount, config.Denom)
+			if err != nil {
+				return err
+			}
+
+			config.IncludeAll = true
+			discrepancies, err := findTxDiscrepancies(ctx, config)
+			if err != nil {
+				return err
+			}
+
+			coreumIncomingAuditTxs, err := GetCoreumAuditTransactions(
+				ctx,
+				clientCtx,
+				fmt.Sprintf("coin_received.receiver='%s'", config.CoreumAccount),
+				config.Denom,
+				config.BeforeDateTime,
+				config.AfterDateTime,
+			)
+			if err != nil {
+				return err
+			}
+			foundationCoreumIncomingAuditTxs := make([]AuditTx, 0)
+			for _, auditTx := range coreumIncomingAuditTxs {
+				if auditTx.FromAddress == config.CoreumFoundationAccount {
+					foundationCoreumIncomingAuditTxs = append(foundationCoreumIncomingAuditTxs, auditTx)
+				}
+			}
+
+			summary := BuildSummary(discrepancies, foundationCoreumIncomingAuditTxs, coreumBalance, xrplSupply)
+
+			log.Info("Summary report:")
+			log.Info(fmt.Sprintf("\n%s", summary.String()))
+
+			return nil
+		},
+	}
+
+	return cmd
+}
+
 func findTxDiscrepancies(ctx context.Context, config Config) ([]TxDiscrepancy, error) {
 	log := logger.Get(ctx)
 	log.Info(fmt.Sprintf("Fetching incoming transactions for %s xrpl account", config.XrplAccount))
@@ -298,7 +377,7 @@ func findTxDiscrepancies(ctx context.Context, config Config) ([]TxDiscrepancy, e
 		config.XrplCurrency,
 		config.XrplIssuer,
 		config.BridgeChainIndex,
-		defaultAfterTime, // for the discrepancies we export full history and filter later
+		defaultBeforeDateTime, // for the discrepancies we export full history and filter later
 		defaultAfterDateTime,
 	)
 	if err != nil {
@@ -312,7 +391,7 @@ func findTxDiscrepancies(ctx context.Context, config Config) ([]TxDiscrepancy, e
 		clientCtx,
 		fmt.Sprintf("coin_spent.spender='%s'", config.CoreumAccount),
 		config.Denom,
-		defaultAfterTime, // for the discrepancies we export full history and filter later
+		defaultBeforeDateTime, // for the discrepancies we export full history and filter later
 		defaultAfterDateTime,
 	)
 	if err != nil {

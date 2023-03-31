@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -49,6 +50,20 @@ func GetCoreumAuditTransactions(
 	return convertBankTxsToAuditTxs(bankTxs, denom), nil
 }
 
+// GetCoreumAccountBalance returns the coreum account balance.
+func GetCoreumAccountBalance(ctx context.Context, clientCtx client.Context, account, denom string) (*big.Int, error) {
+	bankClient := banktypes.NewQueryClient(clientCtx)
+	res, err := bankClient.Balance(ctx, &banktypes.QueryBalanceRequest{
+		Address: account,
+		Denom:   denom,
+	})
+	if err != nil {
+		return nil, errors.Errorf("can't get account %s balance, err: %s", account, err)
+	}
+
+	return res.Balance.Amount.BigInt(), nil
+}
+
 func createClientContext(cfg Config) client.Context {
 	// List required modules.
 	// If you need types from any other module import them and add here.
@@ -85,7 +100,7 @@ func getTxsWithSingleBankSend(
 	beforeDateTime, afterDateTime time.Time,
 ) ([]bankSendWithMemo, error) {
 	log := logger.Get(ctx)
-	log.Info(fmt.Sprintf("Fetching coreum txs from: %s, to: %s ...", beforeDateTime.Format(time.DateTime), afterDateTime.Format(time.DateTime)))
+	log.Info(fmt.Sprintf("Fetching coreum txs before: %s, after: %s ...", beforeDateTime.Format(time.DateTime), afterDateTime.Format(time.DateTime)))
 
 	tmEvents := []string{event}
 
@@ -119,7 +134,7 @@ func getTxsWithSingleBankSend(
 			res, err = authtx.QueryTxsByEvents(clientCtx, tmEvents, int(pageToFetch), limit, "")
 			if err != nil {
 				fetchError = err
-				log.Error("Can't fetch page", zap.String("Page", fmt.Sprintf("%d/%d", pageToFetch, res.PageTotal)), zap.Error(err))
+				log.Error("Can't fetch page", zap.String("Page", fmt.Sprintf("%d", pageToFetch)), zap.Error(err))
 				return
 			}
 			mu.Lock()
@@ -153,7 +168,7 @@ func getTxsWithSingleBankSend(
 			continue
 		}
 		if timestamp.Before(afterDateTime) {
-			break
+			continue
 		}
 
 		if err != nil {
