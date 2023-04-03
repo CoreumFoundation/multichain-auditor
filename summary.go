@@ -24,9 +24,9 @@ func (r Summary) String() string {
 			"Xrpl   [Burnt:%s, Supply:%s, OrphanTxs:%d, OrphanTxAmount:%s] \n"+
 			"Fees: %s \n"+
 			"NoneOrphanDiscrepancies: %d",
-		r.CoreumIncomeAmount, r.CoreumOutcomeAmount, r.CoreumBalance,
-		r.XrplBurntAmount, r.XrplSupply, r.XrplOrphanTxCount, r.XrplOrphanTxAmount,
-		r.FeesAmount,
+		convertFloatToSixDecimalsFloatText(r.CoreumIncomeAmount), convertFloatToSixDecimalsFloatText(r.CoreumOutcomeAmount), convertFloatToSixDecimalsFloatText(r.CoreumBalance),
+		convertFloatToSixDecimalsFloatText(r.XrplBurntAmount), convertFloatToSixDecimalsFloatText(r.XrplSupply), r.XrplOrphanTxCount, convertFloatToSixDecimalsFloatText(r.XrplOrphanTxAmount),
+		convertFloatToSixDecimalsFloatText(r.FeesAmount),
 		r.NoneOrphanDiscrepanciesCount,
 	)
 }
@@ -75,4 +75,8 @@ func BuildSummary(
 		FeesAmount:                   feesAmount,
 		NoneOrphanDiscrepanciesCount: noneOrphanDiscrepanciesCount,
 	}
+}
+
+func convertFloatToSixDecimalsFloatText(amount *big.Int) string {
+	return big.NewFloat(0).Quo(big.NewFloat(0).SetInt(amount), oneMillionFloat).Text('f', 6)
 }
