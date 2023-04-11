@@ -20,7 +20,7 @@ import (
 
 var (
 	xrplRequestTimeout          = 10 * time.Second
-	xrplTxFetcherPoolSize       = 100
+	xrplTxFetcherPoolSize       = 10
 	xrplHistoricalDataPageLimit = 1000 // this limit is maximum for the historical API
 	xrplReceivedTxType          = "received"
 	oneMillionFloat             = big.NewFloat(1_000_000)
@@ -53,10 +53,14 @@ type xrplTransactionRequest struct {
 	Params []xrplTransactionRequestParams `json:"params"`
 }
 
-type xrplAmount struct {
+type xrplMetaDeliveredAmount struct {
 	Currency string     `json:"currency"`
 	Issuer   string     `json:"issuer"`
 	Value    *big.Float `json:"value,string"`
+}
+
+type xrplMeta struct {
+	DeliveredAmount xrplMetaDeliveredAmount `json:"delivered_amount"`
 }
 
 type xrplMemoItem struct {
@@ -71,7 +75,7 @@ type xrplMemo struct {
 type xrplTransaction struct {
 	Account         string     `json:"Account"`
 	Destination     string     `json:"Destination"`
-	Amount          xrplAmount `json:"Amount"`
+	Meta            xrplMeta   `json:"meta"`
 	Memos           []xrplMemo `json:"Memos"`
 	Hash            string     `json:"hash"`
 	TransactionType string     `json:"TransactionType"`
@@ -144,7 +148,7 @@ func filterXRPLBridgeTransactionsAndConvertToTxAudit(bridgeChainIndex string, tx
 		if !ok {
 			continue
 		}
-		amount := convertFloatToSixDecimalsInt(tx.Amount.Value)
+		amount := convertFloatToSixDecimalsInt(tx.Meta.DeliveredAmount.Value)
 		if amount.Cmp(big.NewInt(0)) != 1 {
 			continue
 		}
@@ -308,6 +312,9 @@ func decodeXRPLBridgeMemo(hexMemo, bridgeChainIndex string) (string, string, boo
 }
 
 func convertFloatToSixDecimalsInt(amount *big.Float) *big.Int {
+	if amount == nil {
+		return big.NewInt(0)
+	}
 	convertedAmount, _ := big.NewFloat(0).Mul(amount, oneMillionFloat).Int(nil)
 	return convertedAmount
 }

@@ -49,6 +49,10 @@ func BuildSummary(
 	feesAmount := big.NewInt(0)
 	noneOrphanDiscrepanciesCount := 0
 	for _, discrepancy := range discrepancies {
+		if discrepancy.Discrepancy == InfoAmountOutOfRange {
+			xrplBurntAmount = big.NewInt(0).Add(xrplBurntAmount, discrepancy.XrplTx.Amount)
+			continue
+		}
 		if discrepancy.Discrepancy == "" {
 			xrplBurntAmount = big.NewInt(0).Add(xrplBurntAmount, discrepancy.XrplTx.Amount)
 			coreumOutcomeAmount = big.NewInt(0).Add(coreumOutcomeAmount, discrepancy.CoreumTx.Amount)

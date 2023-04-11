@@ -34,7 +34,7 @@ const (
 	defaultCoreumAccount           = "core1ssh2d2ft6hzrgn9z6k7mmsamy2hfpxl9y8re5x"
 	defaultCoreumFoundationAccount = "core13xmyzhvl02xpz0pu8v9mqalsvpyy7wvs9q5f90"
 
-	defaultXrplRPCAPIURL        = "https://xrplcluster.com"
+	defaultXrplRPCAPIURL        = "https://s2.ripple.com:51234/"
 	defaultXrplHistoricalAPIURL = "https://data.ripple.com"
 	defaultXrplScanAPIURL       = "https://api.xrpscan.com"
 
