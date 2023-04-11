@@ -109,6 +109,9 @@ func FindAuditTxDiscrepancies(
 		amountWithoutFee := computeAmountWithoutFee(xrplTx.Amount, feeConfig)
 		if amountWithoutFee.Cmp(coreumTx.Amount) != 0 {
 			discrepancies = append(discrepancies, fillDiscrepancy(xrplTx, coreumTx, DiscrepancyDifferentAmountOnXrplAndCoreum, amountWithoutFee))
+			delete(xrplTxsMap, xrplTxHash)
+			delete(xrplTxHashToCoreumTxMap, xrplTxHash)
+			continue
 		}
 
 		if includeAll {
