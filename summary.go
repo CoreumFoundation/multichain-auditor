@@ -54,15 +54,12 @@ func BuildSummary(
 			xrplBurntAmount = big.NewInt(0).Add(xrplBurntAmount, discrepancy.XrplTx.Amount)
 			coreumOutcomeAmount = big.NewInt(0).Add(coreumOutcomeAmount, discrepancy.CoreumTx.Amount)
 			feesAmount = big.NewInt(0).Add(feesAmount, big.NewInt(0).Sub(discrepancy.XrplTx.Amount, discrepancy.CoreumTx.Amount))
-			continue
 		case InfoAmountOutOfRange:
 			xrplBurntAmount = big.NewInt(0).Add(xrplBurntAmount, discrepancy.XrplTx.Amount)
-			continue
 		case DiscrepancyOrphanXrplTx:
 			xrplBurntAmount = big.NewInt(0).Add(xrplBurntAmount, discrepancy.XrplTx.Amount)
 			xrplOrphanTxCount++
 			xrplOrphanTxAmount = big.NewInt(0).Add(xrplOrphanTxAmount, discrepancy.XrplTx.Amount)
-			continue
 		default:
 			noneOrphanDiscrepanciesCount++
 		}
