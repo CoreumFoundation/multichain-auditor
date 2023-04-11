@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -41,7 +40,7 @@ func WriteAuditTxsToCSV(txs []AuditTx, path string) error {
 			tx.Hash,
 			tx.FromAddress,
 			tx.ToAddress,
-			tx.Amount.String(),
+			convertFloatToSixDecimalsFloatText(tx.Amount),
 			tx.Memo,
 			tx.Timestamp.String(),
 		})
@@ -87,13 +86,13 @@ func WriteTxsDiscrepancyToCSV(discrepancies []TxDiscrepancy, path string) error 
 	for _, discrepancy := range discrepancies {
 		err := writer.Write([]string{
 			discrepancy.XrplTx.Hash,
-			discrepancy.XrplTx.Amount.String(),
+			convertFloatToSixDecimalsFloatText(discrepancy.XrplTx.Amount),
 			discrepancy.XrplTx.TargetAddress,
 			discrepancy.XrplTx.Memo,
 			discrepancy.XrplTx.Timestamp.String(),
 			discrepancy.CoreumTx.Hash,
-			discrepancy.CoreumTx.Amount.String(),
-			discrepancy.ExpectedAmount.String(),
+			convertFloatToSixDecimalsFloatText(discrepancy.CoreumTx.Amount),
+			convertFloatToSixDecimalsFloatText(discrepancy.ExpectedAmount),
 			discrepancy.CoreumTx.TargetAddress,
 			discrepancy.CoreumTx.Memo,
 			discrepancy.CoreumTx.Timestamp.String(),
@@ -119,11 +118,9 @@ func createFile(path string) (*os.File, error) {
 	return file, nil
 }
 
-func convertBigIntSliceToString(slice []*big.Int) string {
-	stringSlice := make([]string, 0)
-	for _, val := range slice {
-		stringSlice = append(stringSlice, val.String())
+func convertFloatToSixDecimalsFloatText(amount *big.Int) string {
+	if amount == nil {
+		return ""
 	}
-
-	return strings.Join(stringSlice, ";")
+	return big.NewFloat(0).Quo(big.NewFloat(0).SetInt(amount), oneMillionFloat).Text('f', 6)
 }

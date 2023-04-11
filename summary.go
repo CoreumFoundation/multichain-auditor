@@ -76,7 +76,3 @@ func BuildSummary(
 		NoneOrphanDiscrepanciesCount: noneOrphanDiscrepanciesCount,
 	}
 }
-
-func convertFloatToSixDecimalsFloatText(amount *big.Int) string {
-	return big.NewFloat(0).Quo(big.NewFloat(0).SetInt(amount), oneMillionFloat).Text('f', 6)
-}
