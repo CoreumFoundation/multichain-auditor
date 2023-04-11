@@ -27,6 +27,7 @@ type Config struct {
 	XrplAccount             string
 	XrplCurrency            string
 	XrplIssuer              string
+	XrplFetchPoolSize       int
 	BridgeChainIndex        string
 	OutputDocument          string
 	FeeConfigs              []FeeConfig
@@ -94,6 +95,11 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 	}
 
 	coreumFoundationAccount, err := cmd.Flags().GetString(coreumFoundationAccountFlag)
+	if err != nil {
+		return Config{}, err
+	}
+
+	xrplFetchPullSize, err := cmd.Flags().GetInt(xrplFetchPullSizeFlag)
 	if err != nil {
 		return Config{}, err
 	}
@@ -194,6 +200,7 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 		CoreumAccount:           coreumAccount,
 		CoreumFoundationAccount: coreumFoundationAccount,
 		CoreumRPCURL:            coreumRPCAddress,
+		XrplFetchPoolSize:       xrplFetchPullSize,
 		XrplRPCAPIURL:           xrplRPCAPIURL,
 		XrplScanAPIURL:          xrplScanAPIURL,
 		XrplHistoricalAPIURL:    xrplHistoricalAPIURL,

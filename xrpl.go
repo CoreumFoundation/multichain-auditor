@@ -20,7 +20,6 @@ import (
 
 var (
 	xrplRequestTimeout          = 10 * time.Second
-	xrplTxFetcherPoolSize       = 10
 	xrplHistoricalDataPageLimit = 1000 // this limit is maximum for the historical API
 	xrplReceivedTxType          = "received"
 	oneMillionFloat             = big.NewFloat(1_000_000)
@@ -95,10 +94,13 @@ type xrplCurrencySupply struct {
 // GetXRPLAuditTransactions returns the list of the valid xrpl bridge transaction converted to the audit model.
 func GetXRPLAuditTransactions(
 	ctx context.Context,
+	fetcherPoolSize int,
 	rpcAPIURL, historicalAPIURL, account, currency, issuer, bridgeChainIndex string,
 	beforeDateTime, afterDateTime time.Time,
 ) ([]AuditTx, error) {
-	txs, err := getXRPLPaymentTransactions(ctx, rpcAPIURL, historicalAPIURL, account, currency, issuer, beforeDateTime, afterDateTime)
+	txs, err := getXRPLPaymentTransactions(
+		ctx, fetcherPoolSize, rpcAPIURL, historicalAPIURL, account, currency, issuer, beforeDateTime, afterDateTime,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -177,6 +179,7 @@ func filterXRPLBridgeTransactionsAndConvertToTxAudit(bridgeChainIndex string, tx
 // the full set of required attributes.
 func getXRPLPaymentTransactions(
 	ctx context.Context,
+	fetcherPoolSize int,
 	rpcAPIURL, historicalAPIURL, account, currency, issuer string,
 	beforeDateTime, afterDateTime time.Time,
 ) ([]xrplTransaction, error) {
@@ -188,7 +191,7 @@ func getXRPLPaymentTransactions(
 	txs := make([]xrplTransaction, 0)
 
 	// allocate limited pool to fetch tx in parallel
-	workerPool := workerpool.New(xrplTxFetcherPoolSize)
+	workerPool := workerpool.New(fetcherPoolSize)
 	defer workerPool.Stop()
 
 	marker := "" // empty marker indicates that we fetch from latest

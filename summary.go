@@ -49,23 +49,23 @@ func BuildSummary(
 	feesAmount := big.NewInt(0)
 	noneOrphanDiscrepanciesCount := 0
 	for _, discrepancy := range discrepancies {
-		if discrepancy.Discrepancy == InfoAmountOutOfRange {
-			xrplBurntAmount = big.NewInt(0).Add(xrplBurntAmount, discrepancy.XrplTx.Amount)
-			continue
-		}
-		if discrepancy.Discrepancy == "" {
+		switch discrepancy.Discrepancy {
+		case "":
 			xrplBurntAmount = big.NewInt(0).Add(xrplBurntAmount, discrepancy.XrplTx.Amount)
 			coreumOutcomeAmount = big.NewInt(0).Add(coreumOutcomeAmount, discrepancy.CoreumTx.Amount)
 			feesAmount = big.NewInt(0).Add(feesAmount, big.NewInt(0).Sub(discrepancy.XrplTx.Amount, discrepancy.CoreumTx.Amount))
 			continue
-		}
-		if discrepancy.Discrepancy == DiscrepancyOrphanXrplTx {
+		case InfoAmountOutOfRange:
+			xrplBurntAmount = big.NewInt(0).Add(xrplBurntAmount, discrepancy.XrplTx.Amount)
+			continue
+		case DiscrepancyOrphanXrplTx:
 			xrplBurntAmount = big.NewInt(0).Add(xrplBurntAmount, discrepancy.XrplTx.Amount)
 			xrplOrphanTxCount++
 			xrplOrphanTxAmount = big.NewInt(0).Add(xrplOrphanTxAmount, discrepancy.XrplTx.Amount)
 			continue
+		default:
+			noneOrphanDiscrepanciesCount++
 		}
-		noneOrphanDiscrepanciesCount++
 	}
 
 	return Summary{
