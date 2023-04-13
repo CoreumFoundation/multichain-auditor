@@ -20,7 +20,6 @@ import (
 
 var (
 	xrplRequestTimeout          = 10 * time.Second
-	xrplTxFetcherPoolSize       = 100
 	xrplHistoricalDataPageLimit = 1000 // this limit is maximum for the historical API
 	xrplReceivedTxType          = "received"
 	oneMillionFloat             = big.NewFloat(1_000_000)
@@ -53,10 +52,14 @@ type xrplTransactionRequest struct {
 	Params []xrplTransactionRequestParams `json:"params"`
 }
 
-type xrplAmount struct {
+type xrplMetaDeliveredAmount struct {
 	Currency string     `json:"currency"`
 	Issuer   string     `json:"issuer"`
 	Value    *big.Float `json:"value,string"`
+}
+
+type xrplMeta struct {
+	DeliveredAmount xrplMetaDeliveredAmount `json:"delivered_amount"`
 }
 
 type xrplMemoItem struct {
@@ -71,7 +74,7 @@ type xrplMemo struct {
 type xrplTransaction struct {
 	Account         string     `json:"Account"`
 	Destination     string     `json:"Destination"`
-	Amount          xrplAmount `json:"Amount"`
+	Meta            xrplMeta   `json:"meta"`
 	Memos           []xrplMemo `json:"Memos"`
 	Hash            string     `json:"hash"`
 	TransactionType string     `json:"TransactionType"`
@@ -91,10 +94,13 @@ type xrplCurrencySupply struct {
 // GetXRPLAuditTransactions returns the list of the valid xrpl bridge transaction converted to the audit model.
 func GetXRPLAuditTransactions(
 	ctx context.Context,
+	fetcherPoolSize int,
 	rpcAPIURL, historicalAPIURL, account, currency, issuer, bridgeChainIndex string,
 	beforeDateTime, afterDateTime time.Time,
 ) ([]AuditTx, error) {
-	txs, err := getXRPLPaymentTransactions(ctx, rpcAPIURL, historicalAPIURL, account, currency, issuer, beforeDateTime, afterDateTime)
+	txs, err := getXRPLPaymentTransactions(
+		ctx, fetcherPoolSize, rpcAPIURL, historicalAPIURL, account, currency, issuer, beforeDateTime, afterDateTime,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +150,7 @@ func filterXRPLBridgeTransactionsAndConvertToTxAudit(bridgeChainIndex string, tx
 		if !ok {
 			continue
 		}
-		amount := convertFloatToSixDecimalsInt(tx.Amount.Value)
+		amount := convertFloatToSixDecimalsInt(tx.Meta.DeliveredAmount.Value)
 		if amount.Cmp(big.NewInt(0)) != 1 {
 			continue
 		}
@@ -173,6 +179,7 @@ func filterXRPLBridgeTransactionsAndConvertToTxAudit(bridgeChainIndex string, tx
 // the full set of required attributes.
 func getXRPLPaymentTransactions(
 	ctx context.Context,
+	fetcherPoolSize int,
 	rpcAPIURL, historicalAPIURL, account, currency, issuer string,
 	beforeDateTime, afterDateTime time.Time,
 ) ([]xrplTransaction, error) {
@@ -184,7 +191,7 @@ func getXRPLPaymentTransactions(
 	txs := make([]xrplTransaction, 0)
 
 	// allocate limited pool to fetch tx in parallel
-	workerPool := workerpool.New(xrplTxFetcherPoolSize)
+	workerPool := workerpool.New(fetcherPoolSize)
 	defer workerPool.Stop()
 
 	marker := "" // empty marker indicates that we fetch from latest
@@ -308,6 +315,9 @@ func decodeXRPLBridgeMemo(hexMemo, bridgeChainIndex string) (string, string, boo
 }
 
 func convertFloatToSixDecimalsInt(amount *big.Float) *big.Int {
+	if amount == nil {
+		return big.NewInt(0)
+	}
 	convertedAmount, _ := big.NewFloat(0).Mul(amount, oneMillionFloat).Int(nil)
 	return convertedAmount
 }
