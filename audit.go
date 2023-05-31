@@ -135,6 +135,7 @@ func computeMissingBalances() {
 	if err != nil {
 		panic(err)
 	}
+	defer f2.Close()
 	for _, addr := range addresses {
 
 		_, err := f2.Write([]byte(addr + ": " + toSend[addr].String() + "\n"))
