@@ -49,7 +49,7 @@ const (
 
 var (
 	defaultBeforeDateTime = time.Now().UTC()
-	defaultAfterDateTime  = time.Date(2023, time.Month(3), 1, 0, 0, 0, 0, time.UTC)
+	defaultAfterDateTime  = time.Date(2023, time.April, 1, 0, 0, 0, 0, time.UTC)
 )
 
 func rootCmd() *cobra.Command {

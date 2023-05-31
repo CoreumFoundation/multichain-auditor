@@ -1,10 +1,15 @@
 package main
 
 import (
+	"encoding/json"
+	"io"
 	"math/big"
+	"os"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -48,106 +53,95 @@ func FindAuditTxDiscrepancies(
 	includeAll bool,
 	beforeDateTime, afterDateTime time.Time,
 ) []TxDiscrepancy {
-	discrepancies := make([]TxDiscrepancy, 0)
-	xrplTxsMap := make(map[string]AuditTx)
-	for _, xrplTx := range xrplTxs {
-		xrplTxsMap[strings.ToUpper(xrplTx.Hash)] = xrplTx
-	}
+	allTxs := make([]AuditTx, 0, len(xrplTxs)+len(coreumTxs))
+	allTxs = append(allTxs, xrplTxs...)
+	allTxs = append(allTxs, coreumTxs...)
 
-	xrplTxHashToCoreumTxMap := make(map[string]AuditTx)
-
-	// we sort the configs to find first which is before
-	sort.Slice(feeConfigs, func(i, j int) bool {
-		return feeConfigs[i].StartTime.After(feeConfigs[j].StartTime)
+	sort.Slice(allTxs, func(i, j int) bool {
+		return allTxs[i].Timestamp.Before(allTxs[j].Timestamp)
 	})
 
-	for _, coreumTx := range coreumTxs {
-		xrplTxHash := decodeXrplTxHashFromCoreumMemo(coreumTx.Memo)
-		if xrplTxHash == "" {
-			discrepancies = append(discrepancies, fillDiscrepancy(AuditTx{}, coreumTx, DiscrepancyInvalidMemoOnCoreum, nil))
-			continue
-		}
+	collectResults(allTxs)
+	computeMissingBalances()
 
-		if _, ok := xrplTxHashToCoreumTxMap[xrplTxHash]; ok {
-			discrepancies = append(discrepancies, fillDiscrepancy(AuditTx{}, coreumTx, DiscrepancyDuplicatedXrplTxHashInMemoOnCoreum, nil))
-			continue
+	return nil
+}
+
+func collectResults(txs []AuditTx) {
+	f, err := os.Create("txs.json")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	enc := json.NewEncoder(f)
+	for _, tx := range txs {
+		if err := enc.Encode(tx); err != nil {
+			panic(err)
 		}
-		xrplTxHashToCoreumTxMap[xrplTxHash] = coreumTx
+	}
+}
+
+func computeMissingBalances() {
+	feeConfig := FeeConfig{
+		StartTime: time.Date(2023, time.Month(3), 24, 17, 0, 0, 0, time.UTC),
+		FeeRatio:  big.NewInt(1),                // 0.1%
+		MinFee:    big.NewInt(2_400000),         // 2.4 CORE
+		MaxFee:    big.NewInt(477_000000),       // 477 CORE
+		MinAmount: big.NewInt(4_800000),         // 4.8 CORE
+		MaxAmount: big.NewInt(2_400_000_000000), // 2.400.000 CORE
 	}
 
-	for xrplTxHash, xrplTx := range xrplTxsMap {
-		var feeConfig FeeConfig
-		for _, config := range feeConfigs {
-			if xrplTx.Timestamp.After(config.StartTime) {
-				feeConfig = config
-				break
-			}
-		}
-
-		// the tx is out of range for the current min/max we can skip it
-		if feeConfig.MinAmount.Cmp(xrplTx.Amount) == 1 || feeConfig.MaxAmount.Cmp(xrplTx.Amount) == -1 {
-			if includeAll {
-				discrepancies = append(discrepancies, fillDiscrepancy(xrplTx, AuditTx{}, InfoAmountOutOfRange, nil))
-			}
-			delete(xrplTxsMap, xrplTxHash)
-			continue
-		}
-
-		coreumTx, ok := xrplTxHashToCoreumTxMap[xrplTxHash]
-		if !ok {
-			discrepancies = append(discrepancies, fillDiscrepancy(xrplTx, AuditTx{}, DiscrepancyOrphanXrplTx, nil))
-			delete(xrplTxsMap, xrplTxHash)
-			continue
-		}
-		if xrplTx.TargetAddress != coreumTx.TargetAddress {
-			discrepancies = append(discrepancies, fillDiscrepancy(xrplTx, coreumTx, DiscrepancyDifferentTargetAddressesOnXrplAndCoreum, nil))
-			delete(xrplTxsMap, xrplTxHash)
-			delete(xrplTxHashToCoreumTxMap, xrplTxHash)
-			continue
-		}
-
-		amountWithoutFee := computeAmountWithoutFee(xrplTx.Amount, feeConfig)
-		if amountWithoutFee.Cmp(coreumTx.Amount) != 0 {
-			discrepancies = append(discrepancies, fillDiscrepancy(xrplTx, coreumTx, DiscrepancyDifferentAmountOnXrplAndCoreum, amountWithoutFee))
-			delete(xrplTxsMap, xrplTxHash)
-			delete(xrplTxHashToCoreumTxMap, xrplTxHash)
-			continue
-		}
-
-		if includeAll {
-			discrepancies = append(discrepancies, fillDiscrepancy(xrplTx, coreumTx, "", nil))
-		}
-
-		delete(xrplTxsMap, xrplTxHash)
-		delete(xrplTxHashToCoreumTxMap, xrplTxHash)
+	f, err := os.Open("txs.json")
+	if err != nil {
+		panic(err)
 	}
-	for _, coreumTx := range xrplTxHashToCoreumTxMap {
-		discrepancies = append(discrepancies, fillDiscrepancy(AuditTx{}, coreumTx, DiscrepancyOrphanCoreumTx, nil))
+	defer f.Close()
+
+	// FIXME (wojtek): this should use sdk.Int!!!!
+	toSend := map[string]*big.Int{}
+	zero := big.NewInt(0)
+	dec := json.NewDecoder(f)
+	for {
+		var tx AuditTx
+		err := dec.Decode(&tx)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			panic(err)
+		}
+
+		if toSend[tx.TargetAddress] == nil {
+			toSend[tx.TargetAddress] = zero
+		}
+
+		if strings.HasPrefix(tx.ToAddress, "core") {
+			toSend[tx.TargetAddress] = new(big.Int).Add(toSend[tx.TargetAddress], new(big.Int).Neg(tx.Amount))
+		} else {
+			toSend[tx.TargetAddress] = new(big.Int).Add(toSend[tx.TargetAddress], computeAmountWithoutFee(tx.Amount, feeConfig))
+		}
 	}
 
-	sort.Slice(discrepancies, func(i, j int) bool {
-		return discrepancies[i].XrplTx.Timestamp.After(discrepancies[j].XrplTx.Timestamp)
-	})
-
-	// filter by xrpl timestamp
-	filteredDiscrepancies := make([]TxDiscrepancy, 0)
-
-	for _, discrepancy := range discrepancies {
-		// by default, we use the xrpl time, but if the time is zero (possible for coreum orphan transactions) we use coreum
-		filterTime := discrepancy.XrplTx.Timestamp
-		if filterTime.IsZero() {
-			filterTime = discrepancy.CoreumTx.Timestamp
+	addresses := make([]string, 0, len(toSend))
+	for addr, amount := range toSend {
+		if amount.Cmp(zero) != 0 {
+			addresses = append(addresses, addr)
 		}
-		if filterTime.After(beforeDateTime) {
-			continue
-		}
-		if filterTime.Before(afterDateTime) {
-			continue
-		}
-		filteredDiscrepancies = append(filteredDiscrepancies, discrepancy)
 	}
+	sort.Strings(addresses)
 
-	return filteredDiscrepancies
+	f2, err := os.Create("diff.txt")
+	if err != nil {
+		panic(err)
+	}
+	for _, addr := range addresses {
+
+		_, err := f2.Write([]byte(addr + ": " + toSend[addr].String() + "\n"))
+		if err != nil {
+			panic(err)
+		}
+	}
 }
 
 func fillDiscrepancy(xrplTx, coreumTx AuditTx, discrepancy string, expectedAmount *big.Int) TxDiscrepancy {
