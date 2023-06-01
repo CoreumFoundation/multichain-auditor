@@ -164,12 +164,6 @@ func getTxsWithSingleBankSend(
 			return nil, errors.New("message is not bank MsgSend type")
 		}
 		timestamp, err := time.Parse(time.RFC3339, txAny.Timestamp)
-		if timestamp.After(beforeDateTime) {
-			continue
-		}
-		if timestamp.Before(afterDateTime) {
-			continue
-		}
 
 		if err != nil {
 			return nil, errors.Errorf("can't parse time: %s with format %s", txAny.Timestamp, time.RFC3339)

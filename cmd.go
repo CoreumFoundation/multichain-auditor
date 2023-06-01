@@ -48,7 +48,7 @@ const (
 )
 
 var (
-	defaultBeforeDateTime = time.Now().UTC()
+	defaultBeforeDateTime = time.Now().UTC().Add(-time.Hour)
 	defaultAfterDateTime  = time.Date(2023, time.April, 1, 0, 0, 0, 0, time.UTC)
 )
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"math/big"
 	"os"
@@ -9,7 +10,14 @@ import (
 	"strings"
 	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/module"
+	"github.com/cosmos/cosmos-sdk/x/auth"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/pkg/errors"
+
+	"github.com/CoreumFoundation/coreum/pkg/config"
+	"github.com/CoreumFoundation/coreum/x/wbank"
 )
 
 const (
@@ -57,18 +65,18 @@ func FindAuditTxDiscrepancies(
 	allTxs = append(allTxs, xrplTxs...)
 	allTxs = append(allTxs, coreumTxs...)
 
-	sort.Slice(allTxs, func(i, j int) bool {
-		return allTxs[i].Timestamp.Before(allTxs[j].Timestamp)
-	})
-
 	collectResults(allTxs)
-	computeMissingBalances()
+	createTransaction()
 
 	return nil
 }
 
 func collectResults(txs []AuditTx) {
-	f, err := os.Create("txs.json")
+	sort.Slice(txs, func(i, j int) bool {
+		return txs[i].Timestamp.Before(txs[j].Timestamp)
+	})
+
+	f, err := os.Create("log.json")
 	if err != nil {
 		panic(err)
 	}
@@ -82,7 +90,9 @@ func collectResults(txs []AuditTx) {
 	}
 }
 
-func computeMissingBalances() {
+func createTransaction() {
+	// feeConfig is here only because multichain charged them soe needto use it incalculations.
+	// In our soultion we will ignore fees.
 	feeConfig := FeeConfig{
 		StartTime: time.Date(2023, time.Month(3), 24, 17, 0, 0, 0, time.UTC),
 		FeeRatio:  big.NewInt(1),                // 0.1%
@@ -92,13 +102,12 @@ func computeMissingBalances() {
 		MaxAmount: big.NewInt(2_400_000_000000), // 2.400.000 CORE
 	}
 
-	f, err := os.Open("txs.json")
+	f, err := os.Open("log.json")
 	if err != nil {
 		panic(err)
 	}
 	defer f.Close()
 
-	// FIXME (wojtek): this should use sdk.Int!!!!
 	toSend := map[string]*big.Int{}
 	zero := big.NewInt(0)
 	dec := json.NewDecoder(f)
@@ -123,13 +132,30 @@ func computeMissingBalances() {
 		}
 	}
 
+	sum := zero
 	addresses := make([]string, 0, len(toSend))
 	for addr, amount := range toSend {
-		if amount.Cmp(zero) != 0 {
+		if amount.Cmp(zero) == 1 {
 			addresses = append(addresses, addr)
+			sum = new(big.Int).Add(sum, amount)
 		}
 	}
+	if len(addresses) == 0 {
+		fmt.Println("nothing to send")
+		return
+	}
+
 	sort.Strings(addresses)
+
+	multiSend := banktypes.MsgMultiSend{
+		Inputs: []banktypes.Input{
+			{
+				Address: "core1zeu60z4lwjf752kpjrxhc46yg4ukv0xzl680m2",
+				Coins:   sdk.NewCoins(sdk.NewCoin("core", sdk.NewIntFromBigInt(sum))),
+			},
+		},
+		Outputs: []banktypes.Output{},
+	}
 
 	f2, err := os.Create("diff.txt")
 	if err != nil {
@@ -137,11 +163,29 @@ func computeMissingBalances() {
 	}
 	defer f2.Close()
 	for _, addr := range addresses {
-
 		_, err := f2.Write([]byte(addr + ": " + toSend[addr].String() + "\n"))
 		if err != nil {
 			panic(err)
 		}
+
+		multiSend.Outputs = append(multiSend.Outputs, banktypes.Output{
+			Address: addr,
+			Coins:   sdk.NewCoins(sdk.NewCoin("core", sdk.NewIntFromBigInt(toSend[addr]))),
+		})
+	}
+
+	encodingConfig := config.NewEncodingConfig(module.NewBasicManager(
+		auth.AppModuleBasic{},
+		wbank.AppModuleBasic{},
+	))
+
+	b, err := encodingConfig.Codec.MarshalJSON(&multiSend)
+	if err != nil {
+		panic(err)
+	}
+
+	if err := os.WriteFile("tx.json", b, 0o600); err != nil {
+		panic(err)
 	}
 }
 
