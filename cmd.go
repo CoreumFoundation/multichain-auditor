@@ -35,7 +35,7 @@ const (
 	defaultCoreumAccount           = "core1ssh2d2ft6hzrgn9z6k7mmsamy2hfpxl9y8re5x"
 	defaultCoreumFoundationAccount = "core13xmyzhvl02xpz0pu8v9mqalsvpyy7wvs9q5f90"
 
-	defaultXrplFetchPullSize    = 10
+	defaultXrplFetchPoolSize    = 10
 	defaultXrplRPCAPIURL        = "https://s2.ripple.com:51234/"
 	defaultXrplHistoricalAPIURL = "https://data.ripple.com"
 	defaultXrplScanAPIURL       = "https://api.xrpscan.com"
@@ -68,7 +68,7 @@ func rootCmd() *cobra.Command {
 	cmd.PersistentFlags().String(beforeDateTimeFlag, defaultBeforeDateTime.Format(time.DateTime), fmt.Sprintf("UTC date and time to fetch from, format: %s", time.DateTime))
 	cmd.PersistentFlags().String(afterDateTimeFlag, defaultAfterDateTime.Format(time.DateTime), fmt.Sprintf("UTC date and time to fetch to, format: %s", time.DateTime))
 	cmd.PersistentFlags().String(xrplRPCAPIURLFlag, defaultXrplRPCAPIURL, "xrpl RPC address")
-	cmd.PersistentFlags().Int(xrplFetchPoolSizeFlag, defaultXrplFetchPullSize, "xrpl fetch pool size")
+	cmd.PersistentFlags().Int(xrplFetchPoolSizeFlag, defaultXrplFetchPoolSize, "xrpl fetch pool size")
 	cmd.PersistentFlags().String(xrplHistoricalAPIURLFlag, defaultXrplHistoricalAPIURL, "xrpl historical API address")
 	cmd.PersistentFlags().String(xrplScanAPIURLFlag, defaultXrplScanAPIURL, "xrpl scan API address")
 	cmd.PersistentFlags().String(xrplAccountFlag, defaultXrplAccount, "xrpl account")
