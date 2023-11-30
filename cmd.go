@@ -17,7 +17,7 @@ const (
 	coreumNodeFlag              = "coreum-node"
 	coreumAccountFlag           = "coreum-account"
 	coreumFoundationAccountFlag = "coreum-foundation-account"
-	xrplFetchPullSizeFlag       = "xrpl-fetch-pull-size"
+	xrplFetchPoolSizeFlag       = "xrpl-fetch-pool-size"
 	xrplRPCAPIURLFlag           = "xrpl-rpc-api-url"
 	xrplHistoricalAPIURLFlag    = "xrpl-historical-api-url"
 	xrplScanAPIURLFlag          = "xrpl-scan-api-url"
@@ -68,7 +68,7 @@ func rootCmd() *cobra.Command {
 	cmd.PersistentFlags().String(beforeDateTimeFlag, defaultBeforeDateTime.Format(time.DateTime), fmt.Sprintf("UTC date and time to fetch from, format: %s", time.DateTime))
 	cmd.PersistentFlags().String(afterDateTimeFlag, defaultAfterDateTime.Format(time.DateTime), fmt.Sprintf("UTC date and time to fetch to, format: %s", time.DateTime))
 	cmd.PersistentFlags().String(xrplRPCAPIURLFlag, defaultXrplRPCAPIURL, "xrpl RPC address")
-	cmd.PersistentFlags().Int(xrplFetchPullSizeFlag, defaultXrplFetchPullSize, "xrpl fetch pool size")
+	cmd.PersistentFlags().Int(xrplFetchPoolSizeFlag, defaultXrplFetchPullSize, "xrpl fetch pool size")
 	cmd.PersistentFlags().String(xrplHistoricalAPIURLFlag, defaultXrplHistoricalAPIURL, "xrpl historical API address")
 	cmd.PersistentFlags().String(xrplScanAPIURLFlag, defaultXrplScanAPIURL, "xrpl scan API address")
 	cmd.PersistentFlags().String(xrplAccountFlag, defaultXrplAccount, "xrpl account")
