@@ -33,6 +33,8 @@ type Config struct {
 	FeeConfigs              []FeeConfig
 	IncludeAll              bool
 	MultichainRescanAPIURL  string
+	ManualBridgeTxSender    string
+	NonProcessedAmounts     map[string]int
 }
 
 // FeeConfig the settings used for the calculation of the final amount which includes fee.
@@ -139,6 +141,11 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 		return Config{}, err
 	}
 
+	manualBridgeTxSender, err := cmd.Flags().GetString(manualBridgeTxSenderFlag)
+	if err != nil {
+		return Config{}, err
+	}
+
 	outputDocument := ""
 	if cmd.Flags().Lookup(outputDocumentFlag) != nil {
 		outputDocument, err = cmd.Flags().GetString(outputDocumentFlag)
@@ -193,6 +200,36 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 		},
 	}
 
+	nonProcessedAmounts := map[string]int{
+		"core13ntfv565uvlp0x6gtkqkkt8s7jrr6l4dhjw5nk": 7247848871,
+		"core1w93heglekxfpwud66ep92yjyaz6rfnh7jyduvf": 10000000 + 17695470, // 2 txs from this account.
+		"core1fm9w57hcq5984d07ku9ewfwaxt89w64uh5cqu8": 2503000000,
+		"core10t696zghgs55gszcng00kzkrqmgpr59k7t7md5": 101055856298,
+		"core1emdkcuznuh2hrar22w4wmdv5j53lqpt883agft": 6000000,
+		"core184cn6se86h4ghnfvcz8zjz8wsdas20jej89wqc": 10000000,
+		"core163xhdn0u3ne736avtnen5gqv54kk4qhansjyc7": 2000000000,
+		"core1qnvwd8vkryk53r6eaew8qzjafh3uyctpexjwlw": 5000000,
+		"core1rspkvw33f2pek3h93g9rzzrmqhaxtql5fqrlsm": 216000000,
+		"core1zeu60z4lwjf752kpjrxhc46yg4ukv0xzl680m2": 10000000000,
+		"core1m02v6wt6klldkn4psau5zs44juzry4qn5zwaly": 700240293,
+		"core1v5f05m2vrjp4lagw7830ahp227v0nrxnzuwc20": 300617536,
+		"core1szdmerkyf7hdk6s3n78ajv439hvk43z8jrfjlm": 2021182735,
+		"core1f8rjxs9qqy9vuq3amu0mdu96c6r54x6jgydssy": 555000000,
+		"core1rravmcp3mhzwclvhp5kwdcqw838kdla4cyfpr6": 105000000,
+		"core1v27fg3jjk4m9v673mq8n6hpsfzhhnkkex68f76": 2340000000,
+		"core125stq4q8m554qj6f24e5w2cy8r054swz97uygc": 10000000,
+		"core16w7tjgj2xj5cpqce4hprkkpamxs3pj6qsqdjc5": 1013000000,
+		"core1evg36pmmdle5hxna3xxll420l6u5a72eq44suq": 242156300,
+		"core127uq9ued37fzv4kvvywmecclsnqh6s6xer98zf": 27000000000,
+		"core1nhvcg07wss35l30q9s6xhzse5dj6gksjxhfw04": 5000000,
+		"core18ml0p4cgk4hehwqmkxadtjz4yjamlkhy8d4v8u": 10000000,
+		"core103tvnrw7wc0uc9nf4dam73chhdf4hx6nscl6lz": 2291505364,
+		"core1xtdms250hk5p3rksjf6yqs9vmqwm7qv82v6w70": 204708550,
+		"core13tphl9xqlaazyvpc8vudgmvtwrrfmn072596ky": 134199062,
+		"core1lh00c9fn7nauccz8uyxw6l4vc2ucsnaz356yhu": 60000000,
+		"core1p27qk09x7vag6523rvxymhdnyul6wc6ahxrm6p": 141744708,
+	}
+
 	return Config{
 		BeforeDateTime:          beforeDateTime.UTC(),
 		AfterDateTime:           afterDateTime.UTC(),
@@ -212,5 +249,7 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 		FeeConfigs:              feeConfigs,
 		IncludeAll:              includeAll,
 		MultichainRescanAPIURL:  multichainRescanAPIURL,
+		ManualBridgeTxSender:    manualBridgeTxSender,
+		NonProcessedAmounts:     nonProcessedAmounts,
 	}, nil
 }

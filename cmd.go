@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/logger"
@@ -28,6 +30,7 @@ const (
 	outputDocumentFlag          = "output-document"
 	includeAllFlag              = "include-all"
 	multichainRescanAPIURLFlag  = "multichain-rescan-api-url"
+	manualBridgeTxSenderFlag    = "manual-bridge-tx-sender"
 )
 
 const (
@@ -61,6 +64,7 @@ func rootCmd() *cobra.Command {
 	cmd.AddCommand(xrplCmd())
 	cmd.AddCommand(discrepancyCmd())
 	cmd.AddCommand(summaryCmd())
+	cmd.AddCommand(generateManualBridgeTxCmd())
 
 	cmd.PersistentFlags().String(coreumNodeFlag, defaultCoreumRPC, "coreum rpc address")
 	cmd.PersistentFlags().String(coreumAccountFlag, defaultCoreumAccount, "multichain account on coreum")
@@ -370,6 +374,30 @@ func summaryPrintCmd() *cobra.Command {
 	return cmd
 }
 
+func generateManualBridgeTxCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "generate-manual-bridge-tx",
+		Short: "Generates multisend transaction for non-processed by Multichain txs.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			config, ctx, _, err := Setup(cmd)
+			if err != nil {
+				return err
+			}
+
+			if err := generateManualBridgeTx(ctx, config); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+
+	cmd.PersistentFlags().String(manualBridgeTxSenderFlag, "", "sender for manual bridge Tx")
+	cmd.PersistentFlags().String(outputDocumentFlag, "manual-tx.json", "output file")
+
+	return cmd
+}
+
 func findTxDiscrepancies(ctx context.Context, config Config) ([]TxDiscrepancy, error) {
 	log := logger.Get(ctx)
 	log.Info(fmt.Sprintf("Fetching incoming transactions for %s xrpl account", config.XrplAccount))
@@ -414,4 +442,27 @@ func findTxDiscrepancies(ctx context.Context, config Config) ([]TxDiscrepancy, e
 	log.Info(fmt.Sprintf("Found %d discrepancies", len(discrepancies)))
 
 	return discrepancies, nil
+}
+
+func generateManualBridgeTx(ctx context.Context, config Config) error {
+	clientCtx := createClientContext(config).WithFromAddress(sdk.MustAccAddressFromBech32(config.ManualBridgeTxSender))
+
+	tx, err := newBankMultisendTx(ctx, clientCtx, config.Denom, config.NonProcessedAmounts)
+	if err != nil {
+		return err
+	}
+
+	txBytes, err := clientCtx.TxConfig.TxJSONEncoder()(tx)
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(config.OutputDocument, txBytes, 0644); err != nil {
+		return err
+	}
+
+	log := logger.Get(ctx)
+	log.Info(fmt.Sprintf("Wrote tx to %s", config.OutputDocument))
+
+	return nil
 }
