@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	coreumTxFetcherPoolSize = 15
+	coreumTxFetcherPoolSize = 10
 )
 
 type bankSendWithMemo struct {
