@@ -20,6 +20,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/CoreumFoundation/coreum-tools/pkg/logger"
+	coreumclient "github.com/CoreumFoundation/coreum/pkg/client"
 	"github.com/CoreumFoundation/coreum/pkg/config"
 	"github.com/CoreumFoundation/coreum/pkg/config/constant"
 	"github.com/CoreumFoundation/coreum/x/wbank"
@@ -193,6 +194,45 @@ func getTxsWithSingleBankSend(
 	log.Info(fmt.Sprintf("Found coreum txs total: %d", len(bankSendMessages)))
 
 	return bankSendMessages, nil
+}
+
+func newBankMultisendTx(
+	ctx context.Context,
+	clientCtx client.Context,
+	denom string,
+	addrAmount map[string]int,
+) (sdk.Tx, error) {
+	outputs := make([]banktypes.Output, 0, len(addrAmount))
+	inputAmount := 0
+	for addr, amount := range addrAmount {
+		accAddr, err := sdk.AccAddressFromBech32(addr)
+		if err != nil {
+			return nil, errors.Wrap(err, "can't parse address")
+		}
+		output := banktypes.NewOutput(accAddr, sdk.NewCoins(sdk.NewInt64Coin(denom, int64(amount))))
+		outputs = append(outputs, output)
+
+		inputAmount += amount
+	}
+
+	bankMultisend := &banktypes.MsgMultiSend{
+		Inputs: []banktypes.Input{
+			banktypes.NewInput(clientCtx.GetFromAddress(), sdk.NewCoins(sdk.NewInt64Coin(denom, int64(inputAmount)))),
+		},
+		Outputs: outputs,
+	}
+	txf := coreumclient.Factory{}.
+		WithChainID(clientCtx.ChainID).
+		WithTxConfig(clientCtx.TxConfig).
+		WithGas(500000). // Hardcoded for simplicity
+		WithGasPrices("0.0625ucore")
+
+	unsignedTx, err := txf.BuildUnsignedTx(bankMultisend)
+	if err != nil {
+		return nil, errors.Wrap(err, "can't build unsigned tx")
+	}
+
+	return unsignedTx.GetTx(), nil
 }
 
 func convertBankTxsToAuditTxs(coreumTxs []bankSendWithMemo, denom string) []AuditTx {
