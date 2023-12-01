@@ -128,8 +128,8 @@ func getTxsWithSingleBankSend(
 
 	for page := 1; page <= int(res0.PageTotal); page++ {
 		pageToFetch := page
+		wg.Add(1)
 		workerPool.Submit(func() {
-			wg.Add(1)
 			defer wg.Done()
 
 			log.Info("Fetching", zap.String("Page", fmt.Sprintf("%d/%d", pageToFetch, res0.PageTotal)))
