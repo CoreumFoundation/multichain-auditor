@@ -141,9 +141,12 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 		return Config{}, err
 	}
 
-	manualBridgeTxSender, err := cmd.Flags().GetString(manualBridgeTxSenderFlag)
-	if err != nil {
-		return Config{}, err
+	manualBridgeTxSender := ""
+	if cmd.Flags().Lookup(manualBridgeTxSender) != nil {
+		manualBridgeTxSender, err = cmd.Flags().GetString(manualBridgeTxSenderFlag)
+		if err != nil {
+			return Config{}, err
+		}
 	}
 
 	outputDocument := ""
