@@ -99,7 +99,7 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 		return Config{}, err
 	}
 
-	xrplFetchPullSize, err := cmd.Flags().GetInt(xrplFetchPullSizeFlag)
+	xrplFetchPullSize, err := cmd.Flags().GetInt(xrplFetchPoolSizeFlag)
 	if err != nil {
 		return Config{}, err
 	}

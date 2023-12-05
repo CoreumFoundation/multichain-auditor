@@ -15,6 +15,7 @@ import (
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/gammazero/workerpool"
+	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -25,7 +26,7 @@ import (
 )
 
 const (
-	coreumTxFetcherPoolSize = 100
+	coreumTxFetcherPoolSize = 10
 )
 
 type bankSendWithMemo struct {
@@ -111,40 +112,47 @@ func getTxsWithSingleBankSend(
 	workerPool := workerpool.New(coreumTxFetcherPoolSize)
 	defer workerPool.Stop()
 
-	page := uint64(1)
-	res, err := authtx.QueryTxsByEvents(clientCtx, tmEvents, int(page), limit, "")
+	// We make first query only to get the total number of txs & pages.
+	// Later all pages are fetched in parallel to have consistent logic.
+	res0, err := authtx.QueryTxsByEvents(clientCtx, tmEvents, 1, limit, "")
 	if err != nil {
 		return nil, err
 	}
-	log.Info("Fetching", zap.String("Page", fmt.Sprintf("%d/%d", page, res.PageTotal)))
-	page++
 
 	txs := make([]*sdk.TxResponse, 0)
-	txs = append(txs, res.Txs...)
 
 	mu := sync.Mutex{}
 	wg := sync.WaitGroup{}
+
 	var fetchError error
-	wg.Add(int(res.PageTotal) - 1) // we already fetched first
-	for ; page <= res.PageTotal; page++ {
+
+	for page := 1; page <= int(res0.PageTotal); page++ {
 		pageToFetch := page
+		wg.Add(1)
 		workerPool.Submit(func() {
 			defer wg.Done()
-			log.Info("Fetching", zap.String("Page", fmt.Sprintf("%d/%d", pageToFetch, res.PageTotal)))
-			res, err = authtx.QueryTxsByEvents(clientCtx, tmEvents, int(pageToFetch), limit, "")
+
+			log.Info("Fetching", zap.String("Page", fmt.Sprintf("%d/%d", pageToFetch, res0.PageTotal)))
+			res, err := authtx.QueryTxsByEvents(clientCtx, tmEvents, pageToFetch, limit, "")
 			if err != nil {
-				fetchError = err
+				fetchError = multierror.Append(fetchError, err)
 				log.Error("Can't fetch page", zap.String("Page", fmt.Sprintf("%d", pageToFetch)), zap.Error(err))
 				return
 			}
+
 			mu.Lock()
 			defer mu.Unlock()
+
 			txs = append(txs, res.Txs...)
 		})
 	}
 	wg.Wait()
 	if fetchError != nil {
 		return nil, fetchError
+	}
+
+	if len(txs) != int(res0.TotalCount) {
+		return nil, errors.New("fetched tx count doesn't match total tx count returned by pagination")
 	}
 
 	for _, txAny := range txs {
