@@ -205,6 +205,7 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 		},
 	}
 
+	// Addresses and amounts from discrepancies.csv
 	nonProcessedAmounts := map[string]int{
 		"core13ntfv565uvlp0x6gtkqkkt8s7jrr6l4dhjw5nk": 7247848871,
 		"core1w93heglekxfpwud66ep92yjyaz6rfnh7jyduvf": 10000000 + 17695470, // 2 txs from this account.
