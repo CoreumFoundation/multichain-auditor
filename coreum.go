@@ -221,10 +221,11 @@ func newBankMultisendTx(
 		},
 		Outputs: outputs,
 	}
+	// Gas & GasPrice are Hardcoded for simplicity
 	txf := coreumclient.Factory{}.
 		WithChainID(clientCtx.ChainID).
 		WithTxConfig(clientCtx.TxConfig).
-		WithGas(500000). // Hardcoded for simplicity
+		WithGas(2000000).
 		WithGasPrices("0.0625ucore")
 
 	unsignedTx, err := txf.BuildUnsignedTx(bankMultisend)

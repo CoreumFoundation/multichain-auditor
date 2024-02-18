@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -142,11 +143,12 @@ func getConfig(cmd *cobra.Command) (Config, error) {
 	}
 
 	manualBridgeTxSender := ""
-	if cmd.Flags().Lookup(manualBridgeTxSender) != nil {
+	if cmd.Flags().Lookup(manualBridgeTxSenderFlag) != nil {
 		manualBridgeTxSender, err = cmd.Flags().GetString(manualBridgeTxSenderFlag)
 		if err != nil {
 			return Config{}, err
 		}
+		fmt.Println("manualBridgeTxSender" + manualBridgeTxSender)
 	}
 
 	outputDocument := ""
